@@ -169,11 +169,8 @@ def Hk(kx, ky):
     return mat
     '''
 
-    lamb =  0.2
-    e1   = -0.1
-    e2   =  0.1
-    return array([[e1, lamb], [conj(lamb), e2]])
-    
+    return -0.1
+
 # k point on the y axis
 # returns the positive eigenvalue!
 def band(kx, ky):

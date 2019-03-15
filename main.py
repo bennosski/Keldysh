@@ -7,13 +7,13 @@ Created on Thu Dec 08 01:44:04 2016
 
 # this branch is for the embedding self-energy test
 # todo:
-#  - a version of the code which solves the 2x2 problem
+#  - compute G0 for the 2by2 problem
+#  - compute g22 
 #  - a version of the code which solves the 1x1 problem with a selfenergy
-#    (this version will need to calculate g22 explicitly)
 #
 # 1) modularize code by getting rid of separate ARPES specific routines
 # 2) improve code efficiency by eliminating for loops over times
-#
+# 3) stability of bare G and D on imaginary axis -- rewrite fermi functions and exponentials
 
 
 import subprocess
@@ -65,8 +65,11 @@ with open(inputfile,'r') as f:
     omega = float(parseline(f.readline()))    
     pump  = int(parseline(f.readline()))
 
-Norbs = np.shape(Hk(0,0))[0]
-    
+try:
+    Norbs = np.shape(Hk(0,0))[0]
+except:
+    Norbs = 1
+
 if myrank==0:
     print '\n','Params'
     print 'Nt    = ',Nt
@@ -83,6 +86,49 @@ if myrank==0:
 
 if myrank==0:
     startTime = time.time()
+
+#######------------ for embedding test ---------------#########
+
+lamb =  0.2
+e1   =  Hk(0,0)
+e2   =  0.1
+h = np.array([[e1, lamb], [np.conj(lamb), e2]])
+evals,R = np.linalg.eig(h)
+
+beta = Ntau*dtau
+ts   = np.arange(0, Nt*dt, dt)
+taus = np.arange(0, beta, dtau)
+
+print 'len ts', len(ts)
+print 'len taus', len(taus)
+
+# compute non-interacting G
+
+f = 1.0/(np.exp(beta*evals)+1.0)
+GL = 1j*np.einsum('ij,jt,kj->ikt', R, f[:,None]*np.exp(-1j*evals[:,None]*ts[None,:]), np.conj(R))
+
+GG = 1j*np.einsum('ij,jt,kj->ikt', R, (f[:,None]-1.0)*np.exp(-1j*evals[:,None]*ts[None,:]), np.conj(R)) 
+
+def f(x): return 1.0/(np.exp(beta*x)+1.0) 
+GM = 1j*np.einsum('ij,jt,kj->ikt', R, \
+          np.vstack(((f(evals[0])-1.0)*np.exp(-evals[0]*taus), \
+                     -f(evals[1])*np.exp(evals[1]*(beta-taus)))), \
+          np.conj(R))
+# dont compare tau=0 for GM...
+
+print 'shape GL', np.shape(GL)
+print 'shape GG', np.shape(GG)
+print 'shape GM', np.shape(GM)
+
+
+# compute Sigma_embedding
+# Sigma = |lambda|^2 * g22(t,t')
+
+
+
+#######-----------------------------------------------#########
+
+exit()
 
 ## k2p is k indices to processor number
 k2p, k2i, i2k = init_k2p_k2i_i2k(Nkx, Nky, nprocs, myrank)
