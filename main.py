@@ -6,6 +6,15 @@ Created on Thu Dec 08 01:44:04 2016
 """
 
 # this branch is for the embedding self-energy test
+# todo:
+#  - a version of the code which solves the 2x2 problem
+#  - a version of the code which solves the 1x1 problem with a selfenergy
+#    (this version will need to calculate g22 explicitly)
+#
+# 1) modularize code by getting rid of separate ARPES specific routines
+# 2) improve code efficiency by eliminating for loops over times
+#
+
 
 import subprocess
 
@@ -86,20 +95,14 @@ if myrank==0:
 
 UksR, UksI, eks, fks = init_Uks(myrank, Nkx, Nky, kpp, k2p, k2i, Nt, Ntau, dt, dtau, pump, Norbs)
 
-
 if myrank==0:
     print "done with Uks initialization"
-
 
 comm.barrier()        
 if myrank==0:
     print "Initialization time ", time.time()-startTime,'\n'
 
-
-#volume = Nkx*Nky * np.sqrt(3.)/3. # the real space volume
-#volume = Nkx*Nky * 8*np.pi**2/(3.*np.sqrt(3.)) # the k space volume
 volume = Nkx*Nky
-
 
 ########## ---------------- Compute the electron selfenergy due to phonons -------------------- ##############
 
@@ -108,7 +111,6 @@ if myrank==0:
 
 D = init_D(omega, Nt, Ntau, dt, dtau, Norbs)
     
-
 if myrank==0:
     print 'max D'
     print D
@@ -120,7 +122,6 @@ Sigma_phonon = langreth(Nt, Ntau, Norbs)
 # compute local Greens function for each processor
 for ik in range(kpp):
     ik1,ik2 = i2k[ik]
-
     G0k = compute_G0(ik1, ik2, myrank, Nkx, Nky, kpp, k2p, k2i, Nt, Ntau, dt, dtau, fks, UksR, UksI, eks, Norbs)
     Gloc_proc.add(G0k)
 
@@ -145,7 +146,7 @@ for myiter in range(iter_selfconsistency):
     if myrank==0:
         print 'max Gloc'
         print Sigma_phonon
-        # save DOS (stored in Sigma_phonon currently)
+        # save DOS
         Sigma_phonon.mysave(savedir+'Glocdir/Gloc')
 
     comm.barrier()
@@ -156,10 +157,6 @@ for myiter in range(iter_selfconsistency):
         print 'max Sigma_phonon'
         print Sigma_phonon
     
-    #pdb.set_trace()
-    #print "after sigma phonon"
-    
-    if myrank==0:
         print "iteration",myiter
         print "time computing phonon selfenergy ", time.time()-timeStart,'\n'
         timeStart = time.time()
@@ -169,9 +166,6 @@ for myiter in range(iter_selfconsistency):
 
         Gloc_proc.zero(Nt, Ntau, Norbs)
 
-        #now compute G
-        if myrank==0:
-            timeStart = time.time()
         for ik in range(kpp):
             temp.zero(Nt, Ntau, Norbs)
 
@@ -182,20 +176,12 @@ for myiter in range(iter_selfconsistency):
 
             temp.scale(-1.0)
 
-            # I think the integral done by multiply means temp has no delta piece
-            # we add a delta piece to add the identity in I - G0*Sigma
             temp.DR = np.ones(Norbs*Nt) / dt
             temp.DM = np.ones(Norbs*Ntau) / (-1j*dtau)
-
-            # copies are good so that the diagonals of the langreth matrices don't get changed during solve
-            #temp2 = langreth(Nt, Ntau, Norbs)
-            #temp2.mycopy(G0k)
-            #out = solve(temp, G0k, Nt, Ntau, dt, dtau, Norbs)
 
             temp = solve(temp, G0k, Nt, Ntau, dt, dtau, Norbs)
 
             Gloc_proc.add(temp)
-
 
     comm.barrier()       
     if myrank==0:
