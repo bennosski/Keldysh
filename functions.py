@@ -169,9 +169,9 @@ def Hk(kx, ky):
     return mat
     '''
 
-    lamb = 0.2
-    e1   =  0.1
-    e2   = -0.1
+    lamb =  0.2
+    e1   = -0.1
+    e2   =  0.1
     return array([[e1, lamb], [conj(lamb), e2]])
     
 # k point on the y axis
