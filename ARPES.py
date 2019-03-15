@@ -11,11 +11,8 @@ Created on Thu Dec 08 01:44:04 2016
 # fix band / time indices for ARPES. THIS HAS CHANGED!!
 #
 
-import subprocess
-#bash_command('source mlpython2.7.5.sh')
-    
+import subprocess    
 import numpy as np
-#from scipy import linalg
 import time
 import sys, os
 from functions import *
@@ -23,6 +20,8 @@ from mpi4py import MPI
 import resource
 import collect_ARPES_data as cAd
 
+savedir   = sys.argv[1]
+LG = sys.argv[2]
 
 comm = MPI.COMM_WORLD
 nprocs = comm.size
@@ -31,11 +30,8 @@ myrank = comm.rank
 def bash_command(cmd):
     subprocess.Popen(['/bin/bash', '-c', cmd])
 
-Norbs = 2        
-
-#inputfile = sys.argv[1]
-savedir   = sys.argv[1]
-LG = sys.argv[2]
+Norbs = np.shape(Hk(0,0))[0]
+ARPES = True
 
 debugdir = savedir + 'debugARPES/'
 
@@ -76,7 +72,6 @@ if myrank==0:
     print 'omega = ',omega
     print 'pump  = ',pump
     print '\n'
-
     
 if myrank==0:
     startTime = time.time()
@@ -103,26 +98,16 @@ if pump==3:
 # setup kpp, k2p, k2i, i2k for the new cut
 # init Uks for these points
 
-#Nk = 101 # number of points on the cut
-Nk = 96
+Nk = 1
+
+constants = (myrank, Nk, 1, ARPES, kpp, k2p, k2i, Nt, Ntau, dt, dtau, pump, Norbs)
 
 k2p, k2i, i2k = init_k2p_k2i_i2k(Nk, 1, nprocs, myrank)
 kpp = np.count_nonzero(k2p==myrank)
-#ppk = nprocs//Nk
 
-
-'''
-if myrank==0:
-    print 'kx, ky'
-    for ik in range(Nk):
-        kx,ky = get_kx_ky_ARPES(ik,Nk)
-        print kx, ky
-'''
-#comm.barrier()
-#exit()
-
-UksR, UksI, eks, fks = init_Uks_ARPES(myrank, Nk, kpp, k2p, k2i, Nt, Ntau, dt, dtau, pump, Norbs)
- 
+#UksR, UksI, eks, fks = init_Uks(myrank, Nk, 1, True, kpp, k2p, k2i, Nt, Ntau, dt, dtau, pump, Norbs)
+UksR, UksI, eks, fks = init_Uks(*constants)
+  
 #2.4 is somewhat broad spectra in energy, but ok
 #probe_width = 2.4  # time units
 #probe_width = 5.0  # time units
@@ -187,12 +172,15 @@ for ik in range(Nk):
             print 'inside for ik',ik,'rank = ',myrank
         
         GLess = np.zeros([Nt, Nt], dtype=complex)
-        G0k = compute_G0_ARPES(ik, myrank, Nk, kpp, k2p, k2i, Nt, Ntau, dt, dtau, fks, UksR, UksI, eks, Norbs)
+        #G0k = compute_G0(ik, myrank, Nk, 1, True, kpp, k2p, k2i, Nt, Ntau, dt, dtau, fks, UksR, UksI, eks, Norbs)
+        G0k = compute_G0(ik, fks, UksR, eks, *constants)
 
         if myrank==0:
             print 'Memory usage after G0k: %s (kb)'% resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
 
-        temp = multiply(G0k, Sigma, Nt, Ntau, dt, dtau, Norbs)
+        #### NOT GOOD. had to change this multiply function. Maybe functions_efficient is the right code????
+        #temp = multiply(G0k, Sigma, Nt, Ntau, dt, dtau, Norbs)
+        multiply(G0k, Sigma, temp, Nt, Ntau, dt, dtau, Norbs)
         temp.scale(-1.0)
 
         # i think the integral done by multiply means temp has no delta piece
@@ -238,7 +226,7 @@ for ik in range(Nk):
 
             pGLess = p * GLess
 
-            # cut out region around it0
+            # cut out region around it0 (for faster integration)
             ipw = round(probe_width/dt)
             i1 = int(it0-2*ipw)
             i2 = int(it0+2*ipw)

@@ -1,10 +1,5 @@
 import numpy as np
-#from mpi4py import MPI
 from scipy.linalg import expm
-
-def parseline(mystr):
-    ind = mystr.index('#')
-    return mystr[ind+1:]
 
 class langreth:
     # would be easier to have Nt, Ntau, Norbs as member variables
@@ -92,6 +87,10 @@ class langreth:
               +'RI max %1.3e mean %1.3e'%(np.amax(np.abs(self.RI)),np.mean(np.abs(self.RI)))+'\n' \
               +'M  max %1.3e mean %1.3e'%(np.amax(np.abs(self.M)), np.mean(np.abs(self.M))) 
 
+def parseline(mystr):
+    ind = mystr.index('#')
+    return mystr[ind+1:]
+
 
 def setup_cuts(Nk):
     if False:
@@ -128,11 +127,14 @@ def Hk(kx, ky):
     mat[1,0] = np.conj(gammak)*2.8
     return mat
     '''
-
-    return -0.1
+    
+    #x = np.zeros([1,1])
+    #x[0] = -0.1
+    
+    x = np.array([[-0.1, 0.2], [0.2, 0.1]])
+    return x
 
 # k point on the y axis
-# returns the positive eigenvalue!
 def band(kx, ky):
     #return 2.8 * sqrt(1. + 4*cos(sqrt(3.)/2*kx)*cos(ky/2) + 4*cos(ky/2)**2)
     #return 2.8 * np.sqrt(1. + 4*np.cos(3.0/2*kx)*np.cos(np.sqrt(3)*ky/2) + 4*np.cos(np.sqrt(3.)*ky/2)**2)
@@ -141,23 +143,18 @@ def band(kx, ky):
 
     return sorted(np.linalg.eigvals(Hk(kx,ky)), reverse=True)
    
+def get_kx_ky(ik1, ik2, Nkx, Nky, ARPES=False):
+    if not ARPES:
+        ky = 4*np.pi/3*ik1/Nkx + 2*np.pi/3*ik2/Nky
+        kx = 2*np.pi/np.sqrt(3.)*ik2/Nky
+    else:
+        f = (1./4+1./24) + (1./12) * ik/(Nkx-1)
+        # cut along gamma - X
+        # ik runs from 0 to Nk/2
+        ky = 4*np.pi/3*f + 2*np.pi/3*f
+        kx = 2*np.pi/np.sqrt(3.)*f
 
-def get_kx_ky(ik1, ik2, Nkx, Nky):
-    ky = 4*np.pi/3*ik1/Nkx + 2*np.pi/3*ik2/Nky
-    kx = 2*np.pi/np.sqrt(3.)*ik2/Nky
     return kx, ky
-
-def get_kx_ky_ARPES(ik, Nk):
-    # cut from 1/4 to 5/12 of the way along the diagonal
-    #f = 1./4 + 1./6 * ik/(Nk-1)
-    f = (1./4+1./24) + (1./12) * ik/(Nk-1)
-    
-    # cut along gamma - X
-    # ik runs from 0 to Nk/2
-    ky = 4*np.pi/3*f + 2*np.pi/3*f
-    kx = 2*np.pi/np.sqrt(3.)*f
-    return kx, ky
-
 
 def compute_A(mytime, Nt, dt, pump):
     if pump==0:
@@ -212,44 +209,10 @@ def init_block_theta(Nt, Norbs):
                     theta[a*Nt+i,b*Nt+j] = 1.0
     return theta
 
-def init_Uks_ARPES(myrank, Nk, kpp, k2p, k2i, Nt, Ntau, dt, dtau, pump, Norbs):
-    
-    beta = Ntau*dtau
-    
-    UksR = np.zeros([kpp, Nt, Norbs, Norbs], dtype=complex)
-    UksI = np.zeros([kpp, Ntau, Norbs], dtype=complex)
-    fks  = np.zeros([kpp, Norbs], dtype=complex)
-    eks  = np.zeros([kpp, Norbs], dtype=complex)
-
-    
-    for ik in range(Nk):
-        if myrank==k2p[ik,0]:                
-                index = k2i[ik,0]
-
-                kx, ky = get_kx_ky_ARPES(ik, Nk)
-            
-                prod = np.diag(np.ones(2))
-                UksR[index,0] = prod.copy()
-                for it in range(1,Nt):
-                    tt = it*dt # - dt/2.0
-                    Ax, Ay, _ = compute_A(tt, Nt, dt, pump)
-                    prod = np.dot(expm(-1j*Hk(kx-Ax, ky-Ay)*dt), prod)
-                    UksR[index,it] = prod.copy()
-
-                eks[index] = band(kx, ky)
-                fks[index] = 1.0/(np.exp(beta*eks)+1.0)
-
-                # better way since all Hk commute at t=0
-                # also pull R across the U(tau,0) so that we work with diagonal things
-                for it in range(Ntau):
-                    UksI[index,it] = np.exp(-eks[index]*dtau*it)
-                    #UksI[index,it,0] = np.exp(-ek*dtau*it)
-                    #UksI[index,it,1] = np.exp(+ek*dtau*it)
-                
-    return UksR, UksI, eks, fks
-
-                    
-def init_Uks(myrank, Nkx, Nky, kpp, k2p, k2i, Nt, Ntau, dt, dtau, pump, Norbs):
+def init_Uks(myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, Nt, Ntau, dt, dtau, pump, Norbs):
+    '''
+    for ARPES, use Nky = 1 
+    '''
     
     beta = Ntau*dtau
     
@@ -263,37 +226,37 @@ def init_Uks(myrank, Nkx, Nky, kpp, k2p, k2i, Nt, Ntau, dt, dtau, pump, Norbs):
             if myrank==k2p[ik1,ik2]:                
                 index = k2i[ik1,ik2]
 
-                kx, ky = get_kx_ky(ik1, ik2, Nkx, Nky)
-                
-                prod = np.diag(np.ones(2))
+                kx, ky = get_kx_ky(ik1, ik2, Nkx, Nky, ARPES)
+            
+                prod = np.diag(np.ones(Norbs))
                 UksR[index,0] = prod.copy()
                 for it in range(1,Nt):
                     tt = it*dt # - dt/2.0
                     Ax, Ay, _ = compute_A(tt, Nt, dt, pump)
                     prod = np.dot(expm(-1j*Hk(kx-Ax, ky-Ay)*dt), prod)
                     UksR[index,it] = prod.copy()
-                         
+
                 eks[index] = band(kx, ky)
                 fks[index] = 1.0/(np.exp(beta*eks)+1.0)
-                
+
                 # better way since all Hk commute at t=0
                 # also pull R across the U(tau,0) so that we work with diagonal things
-
                 for it in range(Ntau):
                     UksI[index,it] = np.exp(-eks[index]*dtau*it)
-                    #UksI[index,it,0] = np.exp(-ek*dtau*it)
-                    #UksI[index,it,1] = np.exp(+ek*dtau*it)
                 
     return UksR, UksI, eks, fks
+        
 
+#def compute_G0(ik1, ik2, myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, Nt, Ntau, dt, dtau, fks, UksR, UksI, eks, Norbs):
+def compute_G0(ik1, ik2, fks, UksR, UksI, eks, myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, Nt, Ntau, dt, dtau, pump, Norbs):
+    # for ARPES use ik2 = 0
 
-def compute_G0(ik1, ik2, myrank, Nkx, Nky, kpp, k2p, k2i, Nt, Ntau, dt, dtau, fks, UksR, UksI, eks, Norbs):
     G0 = langreth(Nt, Ntau, Norbs)
     
     beta  = dtau*Ntau
     theta = init_theta(Ntau)
         
-    kx, ky = get_kx_ky(ik1, ik2, Nkx, Nky)
+    kx, ky = get_kx_ky(ik1, ik2, Nkx, Nky, ARPES)
 
     # check if this is the right k point for this proc
     # this should have been checked before calling this function
@@ -321,8 +284,9 @@ def compute_G0(ik1, ik2, myrank, Nkx, Nky, kpp, k2p, k2i, Nt, Ntau, dt, dtau, fk
             for it2 in range(Ntau):
                 t2 = -1j * it2 * dtau
 
-                UksI_inv = [UksI[index,it2,1], UksI[index,it2,0]]
-                G = fks[index] * UksI_inv
+                #UksI_inv = [UksI[index,it2,1], UksI[index,it2,0]]
+                #G = fks[index] * UksI_inv
+                G = fks[index] / UksI[index,it2]
                 G = np.einsum('ij,jk,kl,lm->im', UksR[index,it1], R, np.diag(G), np.conj(R).T)
                 #G = np.einsum('ij,jk,kl->il', UksR[index,it1], G0L,  )
                 for a in range(Norbs):
@@ -342,84 +306,7 @@ def compute_G0(ik1, ik2, myrank, Nkx, Nky, kpp, k2p, k2i, Nt, Ntau, dt, dtau, fk
                         G0.IR[a*Ntau+it1,b*Nt+it2] = G[a,b]
 
 
-        for it1 in range(Ntau):
-            t1 = -1j * it1 * dtau
-            for it2 in range(Ntau):
-                t2 = -1j * it2 * dtau
-
-                if it1==it2:
-                    e1 = (fks[index,0]-0.5) * np.exp(-1j*(+eks[index,0])*(-1j*dtau*(it1-it2)))
-                    e2 = (fks[index,1]-0.5) * np.exp(-1j*(+eks[index,1])*(-1j*dtau*(it1-it2)))
-                elif it1>it2:
-                    e1 = (-fks[index,0]*np.exp(beta*eks[index,0])) * np.exp(-1j*(+eks[index,0])*(-1j*dtau*(it1-it2)))
-                    e2 = (-fks[index,1]*np.exp(beta*eks[index,1])) * np.exp(-1j*(+eks[index,1])*(-1j*dtau*(it1-it2)))
-                else:
-                    e1 = (fks[index,0]) * np.exp(-1j*(+eks[index,0])*(-1j*dtau*(it1-it2)))
-                    e2 = (fks[index,1]) * np.exp(-1j*(+eks[index,1])*(-1j*dtau*(it1-it2)))
-
-
-                G = 1j*np.einsum('ij,j,jk->ik', R, [e1, e2], np.conj(R).T)
-
-                for a in range(Norbs):
-                    for b in range(Norbs):
-                        G0.M[a*Ntau+it1,b*Ntau+it2] = G[a,b]
-                
-    return G0
-                
-def compute_G0_ARPES(ik, myrank, Nk, kpp, k2p, k2i, Nt, Ntau, dt, dtau, fks, UksR, UksI, eks, Norbs):
-    G0 = langreth(Nt, Ntau, Norbs)
-    
-    beta  = dtau*Ntau
-    theta = init_theta(Ntau)
-        
-    kx, ky = get_kx_ky_ARPES(ik, Nk)
-    
-    # check if this is the right k point for this proc
-    # this should have been checked before calling this function
-    if myrank==k2p[ik,0]:
-        index = k2i[ik,0]
-
-        _, R  = np.linalg.eig(Hk(kx, ky))
-        G0L = 1j*np.einsum('ij,j,jk->ik', R, fks[index]-0.0, np.conj(R).T) # - 0.0 for lesser Green's function    
-        G0G = 1j*np.einsum('ij,j,jk->ik', R, -fks[index]*np.exp(beta*eks[index]), np.conj(R).T) # - 1.0 for greater Green's function    
-        for it1 in range(Nt):
-            for it2 in range(Nt):
-                G = np.einsum('ij,jk,kl->il', UksR[index,it1], G0L, np.conj(UksR[index,it2]).T)
-                for a in range(Norbs):
-                    for b in range(Norbs):
-                        G0.L[a*Nt+it1,b*Nt+it2] = G[a,b]
-
-                G = np.einsum('ij,jk,kl->il', UksR[index,it1], G0G, np.conj(UksR[index,it2]).T)
-                for a in range(Norbs):
-                    for b in range(Norbs):
-                        G0.G[a*Nt+it1,b*Nt+it2] = G[a,b]
-
-
-        for it1 in range(Nt):
-            t1 = it1 * dt
-            for it2 in range(Ntau):
-                t2 = -1j * it2 * dtau
-
-                UksI_inv = [UksI[index,it2,1], UksI[index,it2,0]]
-                G = fks[index] * UksI_inv
-                G = np.einsum('ij,jk,kl,lm->im', UksR[index,it1], R, np.diag(G), np.conj(R).T)
-                #G = np.einsum('ij,jk,kl->il', UksR[index,it1], G0L,  )
-                for a in range(Norbs):
-                    for b in range(Norbs):
-                        G0.RI[a*Nt+it1,b*Ntau+it2] = G[a,b]
-
-        for it1 in range(Ntau):
-            t1 = -1j * it1 * dtau
-            for it2 in range(Nt):
-                t2 = it2 * dt
-
-                G = -UksI[index,it1]*fks[index]*np.exp(beta*eks[index])
-                G = np.einsum('ij,jk,kl,lm->im', R, np.diag(G), np.conj(R).T, np.conj(UksR[index,it2]).T)  
-                #G = np.einsum('ij,jk,kl->il',  , G0G, np.conj(UksR[index,it2]).T)
-                for a in range(Norbs):
-                    for b in range(Norbs):
-                        G0.IR[a*Ntau+it1,b*Nt+it2] = G[a,b]
-
+        #G = 1j*np.einsum('ij,mnj,kj->mnik', R,  , np.conj(R))
 
         for it1 in range(Ntau):
             t1 = -1j * it1 * dtau
@@ -436,7 +323,6 @@ def compute_G0_ARPES(ik, myrank, Nk, kpp, k2p, k2i, Nt, Ntau, dt, dtau, fks, Uks
                     e1 = (fks[index,0]) * np.exp(-1j*(+eks[index,0])*(-1j*dtau*(it1-it2)))
                     e2 = (fks[index,1]) * np.exp(-1j*(+eks[index,1])*(-1j*dtau*(it1-it2)))
 
-
                 G = 1j*np.einsum('ij,j,jk->ik', R, [e1, e2], np.conj(R).T)
 
                 for a in range(Norbs):
@@ -444,7 +330,7 @@ def compute_G0_ARPES(ik, myrank, Nk, kpp, k2p, k2i, Nt, Ntau, dt, dtau, fks, Uks
                         G0.M[a*Ntau+it1,b*Ntau+it2] = G[a,b]
                 
     return G0
-
+                
 
 # do this in the orbital basis
 # so D has zeros in off-diagonal blocks
@@ -490,10 +376,7 @@ def init_D(omega, Nt, Ntau, dt, dtau, Norbs):
             for ib in range(Norbs):
                 D.IR[ib*Ntau+it1,ib*Nt+it2] = -1j*(nB + 1.0 - 1.0)*np.exp(1j*omega*(t1-t2)) - 1j*(nB + 1.0)*np.exp(-1j*omega*(t1-t2))
 
-
     return D
-
-
 
 def initRA(L, Nt, Norbs):
     # theta for band case
@@ -507,19 +390,7 @@ def initRA(L, Nt, Norbs):
 
     return R, A
       
-
-        
-def computeRelativeDifference(a, b):
-    '''
-    change = np.sum(abs(a.L - b.L))/np.sum(abs(a.L)) \
-           + np.sum(abs(a.G - b.G))/np.sum(abs(a.G)) \
-           + np.sum(abs(a.R - b.R))/np.sum(abs(a.R)) \
-           + np.sum(abs(a.A - b.A))/np.sum(abs(a.A)) \
-           + np.sum(abs(a.RI - b.RI))/np.sum(abs(a.RI)) \
-           + np.sum(abs(a.IR - b.IR))/np.sum(abs(a.IR)) \
-           + np.sum(abs(a.M - b.M))/np.sum(abs(a.M))
-    '''
-    
+def computeRelativeDifference(a, b):    
     change = [np.sum(abs(a.L - b.L))/np.sum(abs(a.L)),
               np.sum(abs(a.G - b.G))/np.sum(abs(a.G)),
               np.sum(abs(a.R - b.R))/np.sum(abs(a.R)),
@@ -527,8 +398,7 @@ def computeRelativeDifference(a, b):
               np.sum(abs(a.RI - b.RI))/np.sum(abs(a.RI)),
               np.sum(abs(a.IR - b.IR))/np.sum(abs(a.IR)),
               np.sum(abs(a.M - b.M))/np.sum(abs(a.M))]
-   
-    return change;
+    return change
         
 def old_multiply(a, b, c, Nt, Ntau, dt, dtau, Norbs):
 

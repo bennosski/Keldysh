@@ -12,9 +12,9 @@ Created on Thu Dec 08 01:44:04 2016
 #  - a version of the code which solves the 1x1 problem with a selfenergy
 #
 # 1) modularize code by getting rid of separate ARPES specific routines
-# 2) improve code efficiency by eliminating for loops over times
+# 2) improve code efficiency by eliminating for loops over times (including in init_Uks function)
 # 3) stability of bare G and D on imaginary axis -- rewrite fermi functions and exponentials
-
+# 4) make code look good : create a constants tuple perhaps put all constants at the ends of function calls and use tuple unpacking
 
 import subprocess
 
@@ -24,6 +24,7 @@ import time
 import sys, os
 from functions import *
 from mpi4py import MPI
+import shutil
 
 inputfile = sys.argv[1]
 savedir   = sys.argv[2]
@@ -43,7 +44,6 @@ def mymkdir(mydir):
         print 'making ',mydir
         os.mkdir(mydir)
 
-
 if myrank==0:
     print ' '
     print 'nprocs = ',nprocs
@@ -51,6 +51,7 @@ if myrank==0:
     mymkdir(savedir)
     mymkdir(savedir+'Glocdir/')
     mymkdir(savedir+'Sdir/')
+    shutil.copy(inputfile, savedir+'input') 
 
 comm.barrier()
         
@@ -65,10 +66,8 @@ with open(inputfile,'r') as f:
     omega = float(parseline(f.readline()))    
     pump  = int(parseline(f.readline()))
 
-try:
-    Norbs = np.shape(Hk(0,0))[0]
-except:
-    Norbs = 1
+ARPES = False
+Norbs = np.shape(Hk(0,0))[0]
 
 if myrank==0:
     print '\n','Params'
@@ -87,10 +86,11 @@ if myrank==0:
 if myrank==0:
     startTime = time.time()
 
+'''
 #######------------ for embedding test ---------------#########
 
 lamb =  0.2
-e1   =  Hk(0,0)
+e1   =  Hk(0,0)[0]
 e2   =  0.1
 h = np.array([[e1, lamb], [np.conj(lamb), e2]])
 evals,R = np.linalg.eig(h)
@@ -129,8 +129,8 @@ Sigma_phonon.scale(lamb*np.conj(lamb))
 print 'Sigma phonon\n',Sigma_phonon
 
 #######-----------------------------------------------#########
+'''
 
-exit()
 
 ## k2p is k indices to processor number
 k2p, k2i, i2k = init_k2p_k2i_i2k(Nkx, Nky, nprocs, myrank)
@@ -138,10 +138,13 @@ k2p, k2i, i2k = init_k2p_k2i_i2k(Nkx, Nky, nprocs, myrank)
 # kpp is the number of k points on this process
 kpp = np.count_nonzero(k2p==myrank)
 
+constants = (myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, Nt, Ntau, dt, dtau, pump, Norbs)
+
 if myrank==0:
     print "kpp =",kpp
 
-UksR, UksI, eks, fks = init_Uks(myrank, Nkx, Nky, kpp, k2p, k2i, Nt, Ntau, dt, dtau, pump, Norbs)
+#UksR, UksI, eks, fks = init_Uks(myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, Nt, Ntau, dt, dtau, pump, Norbs)
+UksR, UksI, eks, fks = init_Uks(*constants)
 
 if myrank==0:
     print "done with Uks initialization"
@@ -165,17 +168,19 @@ if myrank==0:
 
 Gloc_proc = langreth(Nt, Ntau, Norbs)
 temp = langreth(Nt, Ntau, Norbs)
+Sigma_phonon = langreth(Nt, Ntau, Norbs)
 
 # compute local Greens function for each processor
 for ik in range(kpp):
     ik1,ik2 = i2k[ik]
-    G0k = compute_G0(ik1, ik2, myrank, Nkx, Nky, kpp, k2p, k2i, Nt, Ntau, dt, dtau, fks, UksR, UksI, eks, Norbs)
+    #G0k = compute_G0(ik1, ik2, myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, Nt, Ntau, dt, dtau, fks, UksR, UksI, eks, Norbs)
+    G0k = compute_G0(ik1, ik2, fks, UksR, UksI, eks, *constants)
     Gloc_proc.add(G0k)
 
 if myrank==0:
     print "Initialization of D and G0k time ", time.time()-timeStart,'\n'
 
-iter_selfconsistency = 3
+iter_selfconsistency = 1
 for myiter in range(iter_selfconsistency):
         
     if myrank==0:
@@ -217,7 +222,8 @@ for myiter in range(iter_selfconsistency):
             temp.zero(Nt, Ntau, Norbs)
 
             ik1, ik2 = i2k[ik]
-            G0k = compute_G0(ik1, ik2, myrank, Nkx, Nky, kpp, k2p, k2i, Nt, Ntau, dt, dtau, fks, UksR, UksI, eks, Norbs)
+            G0k = compute_G0(ik1, ik2, fks, UksR, UksI, eks, *constants)
+            #G0k = compute_G0(ik1, ik2, myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, Nt, Ntau, dt, dtau, fks, UksR, UksI, eks, Norbs)
 
             multiply(G0k, Sigma_phonon, temp, Nt, Ntau, dt, dtau, Norbs)
 
