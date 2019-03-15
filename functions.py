@@ -177,72 +177,6 @@ def compute_A(mytime, Nt, dt, pump):
             A = -Amax*np.sin(np.pi/2.*(mytime-20.0))**2
 
         return A*cosA, A*sinA, fieldAngle
-
-    if pump==1:
-        Amax = 0.05
-
-        fieldAngle = np.pi*150./180.
-        cosA    = np.cos(fieldAngle)
-        sinA    = np.sin(fieldAngle)
-
-        A = 0.
-        if mytime>=18.0 and mytime<=20.0:            
-            A =  Amax*np.sin(np.pi/2.*(mytime-18.0))**2
-        elif mytime>20.0 and mytime<22.0:
-            A = -Amax*np.sin(np.pi/2.*(mytime-20.0))**2
-
-        return A*cosA, A*sinA, fieldAngle
-    
-    if pump==2:
-        Amax = 0.05
-
-        fieldAngle = np.pi*150./180.
-        cosA    = np.cos(fieldAngle)
-        sinA    = np.sin(fieldAngle)
-
-        t1 = 20
-        t2 = 124.71975512
-
-        A = 0.
-        if mytime>=t1 and mytime<=t2:            
-            A = Amax * np.sin(1.2*(mytime-t1)) * np.exp(-(mytime-(t1+t2)/2)**2/40.0**2)
-
-        return A*cosA, A*sinA, fieldAngle
-
-    if pump==3:
-        Amax = 0.005
-
-        fieldAngle = np.pi*150./180.
-        cosA    = np.cos(fieldAngle)
-        sinA    = np.sin(fieldAngle)
-
-        t1 = 40.0
-        t2 = t1 + 104.71975512
-
-        A = 0.
-        if mytime>=t1 and mytime<=t2:            
-            A = Amax * np.sin(1.2*(mytime-t1)) * np.exp(-(mytime-(t1+t2)/2)**2/40.0**2)
-
-        return A*cosA, A*sinA, fieldAngle
-
-
-    if pump==4:
-        Amax = 0.001
-
-        fieldAngle = np.pi*150./180.
-        cosA    = np.cos(fieldAngle)
-        sinA    = np.sin(fieldAngle)
-
-        t1 = 40.0
-        t2 = t1 + 104.71975512
-
-        A = 0.
-        if mytime>=t1 and mytime<=t2:            
-            A = Amax * np.sin(1.2*(mytime-t1)) * np.exp(-(mytime-(t1+t2)/2)**2/40.0**2)
-
-
-        return A*cosA, A*sinA, fieldAngle
-
     
     return None
 
@@ -262,12 +196,10 @@ def init_k2p_k2i_i2k(Nkx, Nky, nprocs, myrank):
 # matches G0 definition
 # is this the right choice? 
 def init_theta(NT):
-    #theta = np.zeros([NT,NT])
     theta = np.diag(0.5 * np.ones(NT))
     for i in range(NT):
         for j in range(i):
             theta[i,j] = 1.0
-    #theta = theta + 0.5*np.diag(np.ones(NT))
     return theta
 
 def init_block_theta(Nt, Norbs):
@@ -303,16 +235,6 @@ def init_Uks_ARPES(myrank, Nk, kpp, k2p, k2i, Nt, Ntau, dt, dtau, pump, Norbs):
                     Ax, Ay, _ = compute_A(tt, Nt, dt, pump)
                     prod = np.dot(expm(-1j*Hk(kx-Ax, ky-Ay)*dt), prod)
                     UksR[index,it] = prod.copy()
-
-                '''
-                ek = band(kx, ky)
-                fpek = 1.0/(np.exp( beta*ek)+1.0)
-                fmek = 1.0/(np.exp(-beta*ek)+1.0)
-                fks[index][0] = fpek
-                fks[index][1] = fmek
-                eks[index][0] =  ek
-                eks[index][1] = -ek
-                '''
 
                 eks[index] = band(kx, ky)
                 fks[index] = 1.0/(np.exp(beta*eks)+1.0)
@@ -351,16 +273,6 @@ def init_Uks(myrank, Nkx, Nky, kpp, k2p, k2i, Nt, Ntau, dt, dtau, pump, Norbs):
                     prod = np.dot(expm(-1j*Hk(kx-Ax, ky-Ay)*dt), prod)
                     UksR[index,it] = prod.copy()
                          
-                '''
-                ek = band(kx, ky)
-                fpek = 1.0/(np.exp( beta*ek)+1.0)
-                fmek = 1.0/(np.exp(-beta*ek)+1.0)
-                fks[index][0] = fpek
-                fks[index][1] = fmek
-                eks[index][0] =  ek
-                eks[index][1] = -ek
-                '''
-
                 eks[index] = band(kx, ky)
                 fks[index] = 1.0/(np.exp(beta*eks)+1.0)
                 

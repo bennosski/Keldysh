@@ -21,9 +21,6 @@ def get_counts(dirpath):
         elif ik in counts and counts[ik]<it:
             counts[ik] = it
 
-    #print 'counts'
-    #print counts
-
     return counts
 
 def main(dirpath, Nk, Nw):
