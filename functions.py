@@ -31,7 +31,6 @@ class langreth:
         self.IR *= b.IR
         self.RI *= b.RI
         self.M  *= b.M
-        #self.initRA(Nt)
         
     def scale(self, c):
         self.G  *= c
@@ -69,27 +68,6 @@ class langreth:
         self.M  = np.zeros([Norbs*Ntau, Norbs*Ntau], dtype=complex)
         self.DR = np.zeros(Norbs*Nt, dtype=complex)
         self.DM = np.zeros(Norbs*Ntau, dtype=complex)
-
-    def mysave_old(self, myfile, Nt, Ntau, myrank, ik):
-        '''
-        arr = np.zeros([3*2*Nt+3*Ntau, 3*2*Nt+3*Ntau], dtype=complex)
-        arr[0:3*Nt,               0:3*Nt]   = self.R
-        arr[3*Nt:3*2*Nt  ,        0:3*Nt]   = self.G
-        arr[0:3*Nt,          3*Nt:3*2*Nt]   = self.L
-        arr[3*Nt:3*2*Nt,     3*Nt:3*2*Nt]   = self.A
-        arr[0:3*Nt, 3*2*Nt:3*2*Nt+3*Ntau]   = self.RI
-        arr[3*2*Nt:3*2*Nt+3*Ntau, 0:3*Nt]   = self.IR
-        arr[3*2*Nt:3*2*Nt+3*Ntau, 3*2*Nt:3*2*Nt+3*Ntau] = self.M
-        '''
-        
-        mystr = '%d'%myrank+'_%d'%ik+'.npy'
-        np.save(myfile+'G'+mystr, self.G)
-        np.save(myfile+'L'+mystr, self.L)
-        np.save(myfile+'RI'+mystr, self.RI)
-        np.save(myfile+'IR'+mystr, self.IR)
-        np.save(myfile+'M'+mystr, self.M)
-        np.save(myfile+'DR'+mystr, self.DR)
-        np.save(myfile+'DM'+mystr, self.DM)
         
     def mysave(self, myfile):
         np.save(myfile+'G', self.G)
@@ -107,33 +85,15 @@ class langreth:
         self.IR = np.load(myfile+'IR.npy')
         self.M  = np.load(myfile+'M.npy')
         
-    def myload_old(self, myfile):
-        '''
-        arr =  np.load(myfile)
-        self.R  = arr[0:3*Nt,               0:3*Nt]            
-        self.G  = arr[3*Nt:3*2*Nt,          0:3*Nt]
-        self.L  = arr[0:3*Nt,          3*Nt:3*2*Nt]       
-        self.A  = arr[3*Nt:3*2*Nt,     3*Nt:3*2*Nt]    
-        self.RI = arr[0:3*Nt, 3*2*Nt:3*2*Nt+3*Ntau]  
-        self.IR = arr[3*2*Nt:3*2*Nt+3*Ntau, 0:3*Nt]  
-        self.M  = arr[3*2*Nt:3*2*Nt+3*Ntau, 3*2*Nt:3*2*Nt+3*Ntau]                    
-        '''
-        mystr = '%d'%myrank+'_%d'%ik+'.npy'
-        self.G  = np.load(myfile+'G'+mystr)
-        self.L  = np.load(myfile+'L'+mystr)
-        self.RI = np.load(myfile+'RI'+mystr)
-        self.IR = np.load(myfile+'IR'+mystr)
-        self.M  = np.load(myfile+'M'+mystr)
-
     def __str__(self):
-        return str(np.amax(np.abs(self.L))) + '\n' \
-            + str(np.amax(np.abs(self.G))) + '\n' \
-            + str(np.amax(np.abs(self.IR))) + '\n' \
-            + str(np.amax(np.abs(self.RI))) + '\n' \
-            + str(np.amax(np.abs(self.M)))
+        return 'L  max %1.3e mean %1.3e'%(np.amax(np.abs(self.L)), np.mean(np.abs(self.L))) +'\n' \
+              +'G  max %1.3e mean %1.3e'%(np.amax(np.abs(self.G)), np.mean(np.abs(self.G))) +'\n' \
+              +'IR max %1.3e mean %1.3e'%(np.amax(np.abs(self.IR)),np.mean(np.abs(self.IR)))+'\n' \
+              +'RI max %1.3e mean %1.3e'%(np.amax(np.abs(self.RI)),np.mean(np.abs(self.RI)))+'\n' \
+              +'M  max %1.3e mean %1.3e'%(np.amax(np.abs(self.M)), np.mean(np.abs(self.M))) 
+
 
 def setup_cuts(Nk):
-
     if False:
         # gamma X M gamma
         cut_ikxs = []

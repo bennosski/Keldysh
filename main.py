@@ -104,6 +104,21 @@ print 'len taus', len(taus)
 
 # compute non-interacting G
 
+#G2x2 = Langreth
+
+'''
+f = 1.0/(np.exp(beta*e2)+1.0)
+Sigma_phonon.L = 1j*np.einsum('ij,mnj,kj->mnik', R, f*np.exp(-1j*e2*(ts[:,None]-ts[None,:])), np.conj(R))
+Sigma_phonon.G = 1j*np.einsum('ij,mnj,kj->mnik', R, (f-1.0)*np.exp(-1j*e2*(ts[:,None]-ts[None,:])), np.conj(R))
+Sigma_phonon.IR = 1j*np.einsum('ij,mnj,kj->mnik', R, f*np.exp(-1j*e2*(-1j*taus[:,None]-ts[None,:])), np.conj(R))
+Sigma_phonon.RI = 1j*np.einsum('ij,mnj,kj->mnik', R, (f-1.0)*np.exp(-1j*e2*(ts[:,None]+1j*taus[None,:])), np.conj(R))
+deltac = np.tril(np.ones([Ntau,Ntau]), -1) + np.diag(0.5*np.ones(Ntau)) 
+Sigma_phonon.M = 1j*np.einsum('ij,mnj,kj->mnik', R, (f-deltac)*np.exp(-e2*(taus[:,None]-taus[None,:])), np.conj(R)) 
+'''
+
+
+
+
 f = 1.0/(np.exp(beta*evals)+1.0)
 GL = 1j*np.einsum('ij,tj,kj->tik', R, f[None,:]*np.exp(-1j*evals[None,:]*ts[:,None]), np.conj(R))
 
@@ -130,12 +145,18 @@ print 'shape GM', np.shape(GM)
 
 # compute Sigma_embedding
 # Sigma = |lambda|^2 * g22(t,t')
-
+# loop over evals to determine which form to use for f times the exponential based on the sign of each eval
 Sigma_phonon = langreth(Nt, Ntau, Norbs)
-# compute each of the parts by hand...
+f = 1.0/(np.exp(beta*e2)+1.0)
+Sigma_phonon.L = 1j*f*np.exp(-1j*e2*(ts[:,None]-ts[None,:]))
+Sigma_phonon.G = 1j*(f-1.0)*np.exp(-1j*e2*(ts[:,None]-ts[None,:]))
+Sigma_phonon.IR = 1j*f*np.exp(-1j*e2*(-1j*taus[:,None]-ts[None,:]))
+Sigma_phonon.RI = 1j*(f-1.0)*np.exp(-1j*e2*(ts[:,None]+1j*taus[None,:]))
+deltac = np.tril(np.ones([Ntau,Ntau]), -1) + np.diag(0.5*np.ones(Ntau)) 
+Sigma_phonon.M = 1j*(f-deltac)*np.exp(-e2*(taus[:,None]-taus[None,:]))
+Sigma_phonon.scale(lamb*np.conj(lamb))
 
-
-
+print Sigma_phonon
 
 #######-----------------------------------------------#########
 
