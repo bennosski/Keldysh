@@ -5,9 +5,7 @@ Created on Thu Dec 08 01:44:04 2016
 @author: Ben
 """
 
-# OK. Remember to commit changes before changing branches.
-# The branches will work separately if this is done.
-# all branches see uncommitted changes unless they are based on different commits
+# this branch is for the embedding self-energy test
 
 import subprocess
 
