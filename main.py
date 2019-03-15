@@ -105,24 +105,35 @@ print 'len taus', len(taus)
 # compute non-interacting G
 
 f = 1.0/(np.exp(beta*evals)+1.0)
-GL = 1j*np.einsum('ij,jt,kj->ikt', R, f[:,None]*np.exp(-1j*evals[:,None]*ts[None,:]), np.conj(R))
+GL = 1j*np.einsum('ij,tj,kj->tik', R, f[None,:]*np.exp(-1j*evals[None,:]*ts[:,None]), np.conj(R))
 
-GG = 1j*np.einsum('ij,jt,kj->ikt', R, (f[:,None]-1.0)*np.exp(-1j*evals[:,None]*ts[None,:]), np.conj(R)) 
+GG = 1j*np.einsum('ij,tj,kj->tik', R, (f[None,:]-1.0)*np.exp(-1j*evals[None,:]*ts[:,None]), np.conj(R)) 
 
+'''
 def f(x): return 1.0/(np.exp(beta*x)+1.0) 
-GM = 1j*np.einsum('ij,jt,kj->ikt', R, \
+GM = 1j*np.einsum('ij,jt,kj->tik', R, \
           np.vstack(((f(evals[0])-1.0)*np.exp(-evals[0]*taus), \
                      -f(evals[1])*np.exp(evals[1]*(beta-taus)))), \
           np.conj(R))
-# dont compare tau=0 for GM...
+# fix the tau=0 point
+f = 1.0/(np.exp(beta*evals)+1.0)
+GM[0] = 1j*np.einsum('ij,j,kj->ik', R, (f-0.5), np.conj(R))
+'''
+
+deltac = np.ones(Ntau)
+deltac[0] = 0.5
+GM = 1j*np.einsum('ij,tj,kj->tik', R, (f[None,:]-deltac[:,None])*np.exp(-evals[None,:]*taus[:,None]), np.conj(R)) 
 
 print 'shape GL', np.shape(GL)
 print 'shape GG', np.shape(GG)
 print 'shape GM', np.shape(GM)
 
-
 # compute Sigma_embedding
 # Sigma = |lambda|^2 * g22(t,t')
+
+Sigma_phonon = langreth(Nt, Ntau, Norbs)
+# compute each of the parts by hand...
+
 
 
 
@@ -163,7 +174,6 @@ if myrank==0:
 
 Gloc_proc = langreth(Nt, Ntau, Norbs)
 temp = langreth(Nt, Ntau, Norbs)
-Sigma_phonon = langreth(Nt, Ntau, Norbs)
 
 # compute local Greens function for each processor
 for ik in range(kpp):
