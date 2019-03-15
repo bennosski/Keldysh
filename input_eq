@@ -2,8 +2,8 @@ Nt    # 400
 Ntau  # 100
 dt    # 0.1
 dtau  # 0.1
-Nkx   # 60
-Nky   # 60
+Nkx   # 1
+Nky   # 1
 g2    # 0.4
 omega # 0.168
 pump  # 0

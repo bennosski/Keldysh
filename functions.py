@@ -127,12 +127,11 @@ class langreth:
         self.M  = np.load(myfile+'M'+mystr)
 
     def __str__(self):
-        print np.amax(np.abs(self.L))
-        print np.amax(np.abs(self.G))
-        print np.amax(np.abs(self.IR))
-        print np.amax(np.abs(self.RI))
-        print np.amax(np.abs(self.M))
-
+        return str(np.amax(np.abs(self.L))) + '\n' \
+            + str(np.amax(np.abs(self.G))) + '\n' \
+            + str(np.amax(np.abs(self.IR))) + '\n' \
+            + str(np.amax(np.abs(self.RI))) + '\n' \
+            + str(np.amax(np.abs(self.M)))
 
 def setup_cuts(Nk):
 
@@ -173,7 +172,11 @@ def Hk(kx, ky):
 def band(kx, ky):
     #return 2.8 * sqrt(1. + 4*cos(sqrt(3.)/2*kx)*cos(ky/2) + 4*cos(ky/2)**2)
     #return 2.8 * np.sqrt(1. + 4*np.cos(3.0/2*kx)*np.cos(np.sqrt(3)*ky/2) + 4*np.cos(np.sqrt(3.)*ky/2)**2)
-    return 2.8 * np.sqrt(1. + 4*np.cos(3.0/2*ky)*np.cos(np.sqrt(3)*kx/2) + 4*np.cos(np.sqrt(3.)*kx/2)**2)
+    
+    #return 2.8 * np.sqrt(1. + 4*np.cos(3.0/2*ky)*np.cos(np.sqrt(3)*kx/2) + 4*np.cos(np.sqrt(3.)*kx/2)**2)
+
+    return sorted(np.linalg.eigvals(Hk(kx,ky)), reverse=True)
+   
 
 def get_kx_ky(ik1, ik2, Nkx, Nky):
     ky = 4*np.pi/3*ik1/Nkx + 2*np.pi/3*ik2/Nky
@@ -336,7 +339,8 @@ def init_Uks_ARPES(myrank, Nk, kpp, k2p, k2i, Nt, Ntau, dt, dtau, pump, Norbs):
                     Ax, Ay, _ = compute_A(tt, Nt, dt, pump)
                     prod = np.dot(expm(-1j*Hk(kx-Ax, ky-Ay)*dt), prod)
                     UksR[index,it] = prod.copy()
-                                    
+
+                '''
                 ek = band(kx, ky)
                 fpek = 1.0/(np.exp( beta*ek)+1.0)
                 fmek = 1.0/(np.exp(-beta*ek)+1.0)
@@ -344,12 +348,17 @@ def init_Uks_ARPES(myrank, Nk, kpp, k2p, k2i, Nt, Ntau, dt, dtau, pump, Norbs):
                 fks[index][1] = fmek
                 eks[index][0] =  ek
                 eks[index][1] = -ek
+                '''
+
+                eks[index] = band(kx, ky)
+                fks[index] = 1.0/(np.exp(beta*eks)+1.0)
 
                 # better way since all Hk commute at t=0
                 # also pull R across the U(tau,0) so that we work with diagonal things
                 for it in range(Ntau):
-                    UksI[index,it,0] = np.exp(-ek*dtau*it)
-                    UksI[index,it,1] = np.exp(+ek*dtau*it)
+                    UksI[index,it] = np.exp(-eks[index]*dtau*it)
+                    #UksI[index,it,0] = np.exp(-ek*dtau*it)
+                    #UksI[index,it,1] = np.exp(+ek*dtau*it)
                 
     return UksR, UksI, eks, fks
 
@@ -378,7 +387,8 @@ def init_Uks(myrank, Nkx, Nky, kpp, k2p, k2i, Nt, Ntau, dt, dtau, pump, Norbs):
                     Ax, Ay, _ = compute_A(tt, Nt, dt, pump)
                     prod = np.dot(expm(-1j*Hk(kx-Ax, ky-Ay)*dt), prod)
                     UksR[index,it] = prod.copy()
-                                    
+                         
+                '''
                 ek = band(kx, ky)
                 fpek = 1.0/(np.exp( beta*ek)+1.0)
                 fmek = 1.0/(np.exp(-beta*ek)+1.0)
@@ -386,12 +396,18 @@ def init_Uks(myrank, Nkx, Nky, kpp, k2p, k2i, Nt, Ntau, dt, dtau, pump, Norbs):
                 fks[index][1] = fmek
                 eks[index][0] =  ek
                 eks[index][1] = -ek
+                '''
 
+                eks[index] = band(kx, ky)
+                fks[index] = 1.0/(np.exp(beta*eks)+1.0)
+                
                 # better way since all Hk commute at t=0
                 # also pull R across the U(tau,0) so that we work with diagonal things
+
                 for it in range(Ntau):
-                    UksI[index,it,0] = np.exp(-ek*dtau*it)
-                    UksI[index,it,1] = np.exp(+ek*dtau*it)
+                    UksI[index,it] = np.exp(-eks[index]*dtau*it)
+                    #UksI[index,it,0] = np.exp(-ek*dtau*it)
+                    #UksI[index,it,1] = np.exp(+ek*dtau*it)
                 
     return UksR, UksI, eks, fks
 
@@ -584,7 +600,6 @@ def init_D(omega, Nt, Ntau, dt, dtau, Norbs):
                 D.M[ib*Ntau+it1, ib*Ntau+it2] = -1j*(nB + theta_transpose[it1,it2])*np.exp(1j*omega*(t1-t2)) - 1j*(nB +  theta[it1,it2])*np.exp(-1j*omega*(t1-t2))
 
 
-
     for it1 in range(Nt):
         t1 = it1 * dt
         for it2 in range(Ntau):
@@ -602,7 +617,6 @@ def init_D(omega, Nt, Ntau, dt, dtau, Norbs):
 
 
     return D
-
 
 
 
@@ -641,8 +655,6 @@ def computeRelativeDifference(a, b):
    
     return change;
         
-
-
 def old_multiply(a, b, c, Nt, Ntau, dt, dtau, Norbs):
 
     aR, aA = initRA(a, Nt, Norbs)

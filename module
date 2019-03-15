@@ -1,0 +1,6 @@
+#!/bin/bash
+echo "loading mpi4py"
+ml py-mpi4py/3.0.0_py27
+
+echo "To run program run the following in sdev:"
+echo " >> mpirun -n 1 python main.py input_eq test/" 

@@ -9,7 +9,6 @@ Created on Thu Dec 08 01:44:04 2016
 # The branches will work separately if this is done.
 # all branches see uncommitted changes unless they are based on different commits
 
-
 import subprocess
 
 import pdb
@@ -18,9 +17,9 @@ import time
 import sys, os
 from functions import *
 from mpi4py import MPI
-import psutil
 
-process = psutil.Process(os.getpid())
+inputfile = sys.argv[1]
+savedir   = sys.argv[2]
 
 comm = MPI.COMM_WORLD
 nprocs = comm.size
@@ -37,8 +36,6 @@ def mymkdir(mydir):
         print 'making ',mydir
         os.mkdir(mydir)
 
-inputfile = sys.argv[1]
-savedir   = sys.argv[2]
 
 if myrank==0:
     print ' '
@@ -60,6 +57,8 @@ with open(inputfile,'r') as f:
     g2    = float(parseline(f.readline()))
     omega = float(parseline(f.readline()))    
     pump  = int(parseline(f.readline()))
+
+Norbs = np.shape(Hk(0,0))[0]
     
 if myrank==0:
     print '\n','Params'
@@ -72,15 +71,12 @@ if myrank==0:
     print 'g2    = ',g2
     print 'omega = ',omega
     print 'pump  = ',pump
-    print '\n'
-
-    
-Norbs = 2
+    print 'Norbs = ',Norbs
+    print '\n'    
 
 if myrank==0:
     startTime = time.time()
 
-    
 ## k2p is k indices to processor number
 k2p, k2i, i2k = init_k2p_k2i_i2k(Nkx, Nky, nprocs, myrank)
 
@@ -113,13 +109,6 @@ if myrank==0:
     timeStart = time.time()
 
 D = init_D(omega, Nt, Ntau, dt, dtau, Norbs)
-
-def myprint(x):
-    print np.amax(np.abs(x.L))
-    print np.amax(np.abs(x.G))
-    print np.amax(np.abs(x.IR))
-    print np.amax(np.abs(x.RI))
-    print np.amax(np.abs(x.M))
     
 
 if myrank==0:
@@ -146,9 +135,6 @@ for myiter in range(iter_selfconsistency):
     if myrank==0:
         timeStart = time.time()
 
-        print 'max Gloc_proc'
-        print Gloc_proc
-
     Sigma_phonon.zero(Nt, Ntau, Norbs)
 
     # store complete local Greens function in Sigma_phonon
@@ -158,8 +144,10 @@ for myiter in range(iter_selfconsistency):
     comm.Allreduce(Gloc_proc.RI, Sigma_phonon.RI, op=MPI.SUM)
     comm.Allreduce(Gloc_proc.M,  Sigma_phonon.M,  op=MPI.SUM)
 
-    # save DOS (stored in Sigma_phonon currently)
     if myrank==0:
+        print 'max Gloc'
+        print Sigma_phonon
+        # save DOS (stored in Sigma_phonon currently)
         Sigma_phonon.mysave(savedir+'Glocdir/Gloc')
 
     comm.barrier()
@@ -192,7 +180,7 @@ for myiter in range(iter_selfconsistency):
             ik1, ik2 = i2k[ik]
             G0k = compute_G0(ik1, ik2, myrank, Nkx, Nky, kpp, k2p, k2i, Nt, Ntau, dt, dtau, fks, UksR, UksI, eks, Norbs)
 
-            temp = multiply(G0k, Sigma_phonon, Nt, Ntau, dt, dtau, Norbs)
+            multiply(G0k, Sigma_phonon, temp, Nt, Ntau, dt, dtau, Norbs)
 
             temp.scale(-1.0)
 
