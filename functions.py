@@ -6,8 +6,6 @@ def parseline(mystr):
     ind = mystr.index('#')
     return mystr[ind+1:]
 
-# branch test 
-
 class langreth:
     # would be easier to have Nt, Ntau, Norbs as member variables
 
@@ -162,12 +160,20 @@ def setup_cuts(Nk):
 
 # kpoint on the y axis
 def Hk(kx, ky):
+    # graphene
+    ''' 
     mat = np.zeros([2,2], dtype=complex)
     gammak = 1 + np.exp(1j*kx*np.sqrt(3.)) + np.exp(1j*np.sqrt(3)/2*(kx + np.sqrt(3)*ky))
     mat[0,1] = gammak*2.8
     mat[1,0] = np.conj(gammak)*2.8
     return mat
+    '''
 
+    lamb = 0.2
+    e1   =  0.1
+    e2   = -0.1
+    return array([[e1, lamb], [conj(lamb), e2]])
+    
 # k point on the y axis
 # returns the positive eigenvalue!
 def band(kx, ky):
@@ -362,7 +368,6 @@ def init_Uks_ARPES(myrank, Nk, kpp, k2p, k2i, Nt, Ntau, dt, dtau, pump, Norbs):
                     #UksI[index,it,1] = np.exp(+ek*dtau*it)
                 
     return UksR, UksI, eks, fks
-
 
                     
 def init_Uks(myrank, Nkx, Nky, kpp, k2p, k2i, Nt, Ntau, dt, dtau, pump, Norbs):
