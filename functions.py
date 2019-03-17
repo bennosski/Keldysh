@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.linalg import expm
+from scipy.linalg import block_diag
 
 class langreth:
     # would be easier to have Nt, Ntau, Norbs as member variables
@@ -142,6 +143,8 @@ def band(kx, ky):
     #return 2.8 * np.sqrt(1. + 4*np.cos(3.0/2*ky)*np.cos(np.sqrt(3)*kx/2) + 4*np.cos(np.sqrt(3.)*kx/2)**2)
 
     #return sorted(np.linalg.eigvals(Hk(kx,ky)), reverse=True)
+
+    # what about eigenvalue sorting? Does it matter
     return np.linalg.eigvals(Hk(kx,ky))
 
 def get_kx_ky(ik1, ik2, Nkx, Nky, ARPES=False):
@@ -206,6 +209,8 @@ def init_theta(NT):
     return theta
 
 def init_block_theta(Nt, Norbs):
+    # could try using scipy.block_diag for this
+
     theta = np.zeros([Norbs*Nt, Norbs*Nt])
     for a in range(Norbs):
         for b in range(Norbs):
@@ -252,7 +257,41 @@ def init_Uks(myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, Nt, Ntau, dt, dtau, pump, N
                 
     return UksR, UksI, eks, fks
         
-def compute_G0_vectorized(ik1, ik2, fks, UksR, UksI, eks, myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, Nt, Ntau, dt, dtau, pump, Norbs):
+def run_tests_vectorized_version(omega, i2k, fks, UksR, UksI, eks, constants):
+
+    myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, Nt, Ntau, dt, dtau, pump, Norbs = constants
+
+    import time
+
+    time0 = time.time()
+    D = init_D(omega, Nt, Ntau, dt, dtau, Norbs)
+    print 'new D time',time.time()-time0
+    time0 = time.time()
+    D_old = init_D_old(omega, Nt, Ntau, dt, dtau, Norbs)
+    print 'old D time', time.time()-time0
+    if myrank==0:
+        print 'D\n', D
+        print 'D_test\n',D_old
+        D_old.scale(-1.0)
+        D_old.add(D)
+        print 'D-D_old\n',D_old
+
+    # compute local Greens function for each processor
+    for ik in range(kpp):
+        ik1,ik2 = i2k[ik]
+
+        G0k = compute_G0(ik1, ik2, fks, UksR, UksI, eks, *constants)
+        G0k_old = compute_G0_old(ik1, ik2, fks, UksR, UksI, eks, *constants)
+
+        print 'G0k\n',G0k
+        print 'G0k2\n',G0k_old
+        G0k_old.scale(-1.0)
+        G0k_old.add(G0k)
+        print 'G0k-G0k_old\n',G0k_old
+
+
+
+def compute_G0(ik1, ik2, fks, UksR, UksI, eks, myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, Nt, Ntau, dt, dtau, pump, Norbs):
 
     G0 = langreth(Nt, Ntau, Norbs)
     
@@ -268,14 +307,11 @@ def compute_G0_vectorized(ik1, ik2, fks, UksR, UksI, eks, myrank, Nkx, Nky, ARPE
     
         # test this for 1x1 and 2x2 cases
         evals, R = np.linalg.eig(Hk(kx, ky))
-        #evals = sorted(evals, reverse=True)
 
-        assert np.amax(abs(Hk(kx,ky)-np.einsum('ij,j,kj', R, evals, np.conj(R))))<1e-14
-
-        print('evals', evals)
-        print('eks[index]', eks[index])
-
-        assert np.amax(abs(evals-eks[index]))<1e-14
+        #assert np.amax(abs(Hk(kx,ky)-np.einsum('ij,j,kj', R, evals, np.conj(R))))<1e-14
+        #print('evals', evals)
+        #print('eks[index]', eks[index])
+        #assert np.amax(abs(evals-eks[index]))<1e-14
 
         G  = 1j*np.einsum('mab,bc,c,dc,ned->amen', UksR[index], R, fks[index]-0.0, np.conj(R), np.conj(UksR[index]))
         G0.L = np.reshape(G, [Nt*Norbs, Nt*Norbs])
@@ -296,7 +332,7 @@ def compute_G0_vectorized(ik1, ik2, fks, UksR, UksI, eks, myrank, Nkx, Nky, ARPE
     return G0
 
 
-def compute_G0(ik1, ik2, fks, UksR, UksI, eks, myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, Nt, Ntau, dt, dtau, pump, Norbs):
+def compute_G0_old(ik1, ik2, fks, UksR, UksI, eks, myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, Nt, Ntau, dt, dtau, pump, Norbs):
     # for ARPES use ik2 = 0
 
     G0 = langreth(Nt, Ntau, Norbs)
@@ -380,10 +416,39 @@ def compute_G0(ik1, ik2, fks, UksR, UksI, eks, myrank, Nkx, Nky, ARPES, kpp, k2p
     return G0
                 
 
+def init_D(omega, Nt, Ntau, dt, dtau, Norbs):
+    D = langreth(Nt, Ntau, Norbs)
+
+    beta = dtau*Ntau
+    nB   = 1./(np.exp(beta*omega)-1.0)
+    theta = init_theta(Ntau)
+    theta = np.tril(np.ones([Ntau,Ntau]), -1) + np.diag(0.5*np.ones(Ntau)) 
+    
+    ts = np.arange(0, Nt*dt, dt)
+    taus = np.arange(0, Ntau*dtau, dtau)
+
+    x = -1j*(nB+1.0-0.0)*np.exp(1j*omega*(ts[:,None]-ts[None,:])) - 1j*(nB+0.0)*np.exp(-1j*omega*(ts[:,None]-ts[None,:]))
+    D.L = block_diag(*[x]*Norbs)
+
+    x = -1j*(nB+1.0-1.0)*np.exp(1j*omega*(ts[:,None]-ts[None,:])) - 1j*(nB+1.0)*np.exp(-1j*omega*(ts[:,None]-ts[None,:]))
+    D.G = block_diag(*[x]*Norbs)
+
+    x = -1j*(nB+1.0-0.0)*np.exp(1j*omega*(ts[:,None]+1j*taus[None,:])) - 1j*(nB+0.0)*np.exp(-1j*omega*(ts[:,None]+1j*taus[None,:]))
+    D.RI = block_diag(*[x]*Norbs)
+
+    x = -1j*(nB+1.0-1.0)*np.exp(1j*omega*(-1j*taus[:,None]-ts[None,:])) - 1j*(nB+1.0)*np.exp(-1j*omega*(-1j*taus[:,None]-ts[None,:]))
+    D.IR = block_diag(*[x]*Norbs)
+    
+    x = -1j*(nB+np.transpose(theta))*np.exp(omega*(taus[:,None]-taus[None,:])) - 1j*(nB+theta)*np.exp(-omega*(taus[:,None]-taus[None,:]))
+    D.M = block_diag(*[x]*Norbs)
+
+    return D
+    
+
 # do this in the orbital basis
 # so D has zeros in off-diagonal blocks
 # no U transformations needed
-def init_D(omega, Nt, Ntau, dt, dtau, Norbs):
+def init_D_old(omega, Nt, Ntau, dt, dtau, Norbs):
 
     D = langreth(Nt, Ntau, Norbs)
 
