@@ -17,7 +17,6 @@ Created on Thu Dec 08 01:44:04 2016
 # 4) make code look good : create a constants tuple perhaps put all constants at the ends of function calls and use tuple unpacking
 
 import subprocess
-
 import pdb
 import numpy as np
 import time
@@ -152,7 +151,6 @@ run_tests_vectorized_version(omega, i2k, constants)
 exit()
 
 ######### ---------------------------------------- ##########
-
 
 
 UksR, UksI, eks, fks = init_Uks(*constants)
