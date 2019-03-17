@@ -129,10 +129,11 @@ def Hk(kx, ky):
     return mat
     '''
     
-    #x = np.zeros([1,1])
-    #x[0] = -0.1
+    #x = np.array([[-0.1, 0.2], [0.2, 0.1]])
     
-    x = np.array([[-0.1, 0.2], [0.2, 0.1]])
+    x = np.zeros([1,1])
+    x[0] = -0.1
+    
     return x
 
 # k point on the y axis

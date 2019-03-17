@@ -49,8 +49,8 @@ if myrank==0:
     print 'nprocs = ',nprocs
     
     mymkdir(savedir)
-    mymkdir(savedir+'Glocdir/')
-    mymkdir(savedir+'Sdir/')
+    mymkdir(savedir+'Gdir/')
+    mymkdir(savedir+'G2x2dir/')
     shutil.copy(inputfile, savedir+'input') 
 
 comm.barrier()
@@ -86,13 +86,12 @@ if myrank==0:
 if myrank==0:
     startTime = time.time()
 
-'''
 #######------------ for embedding test ---------------#########
 
-lamb =  0.2
 e1   =  Hk(0,0)[0]
 e2   =  0.1
-h = np.array([[e1, lamb], [np.conj(lamb), e2]])
+lamb =  0.2
+h = np.array([[e1, lamb], [np.conj(lamb), e2]], dtype=complex)
 evals,R = np.linalg.eig(h)
 
 beta = Ntau*dtau
@@ -107,13 +106,15 @@ print 'len taus', len(taus)
 
 G2x2 = langreth(Nt, Ntau, 2)
 f = 1.0/(np.exp(beta*evals)+1.0)
-G2x2.L  = 1j*np.einsum('ij,mnj,kj->mnik', R, f[None,None,:]*np.exp(-1j*e2*(ts[:,None,None]-ts[None,:,None])), np.conj(R))
-G2x2.G  = 1j*np.einsum('ij,mnj,kj->mnik', R, (f[None,None,:]-1.0)*np.exp(-1j*e2*(ts[:,None,None]-ts[None,:,None])), np.conj(R))
-G2x2.IR = 1j*np.einsum('ij,mnj,kj->mnik', R, f[None,None,:]*np.exp(-1j*e2*(-1j*taus[:,None,None]-ts[None,:,None])), np.conj(R))
-G2x2.RI = 1j*np.einsum('ij,mnj,kj->mnik', R, (f[None,None,:]-1.0)*np.exp(-1j*e2*(ts[:,None,None]+1j*taus[None,:,None])), np.conj(R))
+G2x2.L = 1j*np.einsum('ij,mnj,kj->imkn', R, f[None,None,:]*np.exp(-1j*evals[None,None,:]*(ts[:,None,None]-ts[None,:,None])), np.conj(R))[0,:,0,:]
+G2x2.G  = 1j*np.einsum('ij,mnj,kj->imkn', R, (f[None,None,:]-1.0)*np.exp(-1j*evals[None,None,:]*(ts[:,None,None]-ts[None,:,None])), np.conj(R))[0,:,0,:]
+G2x2.IR = 1j*np.einsum('ij,mnj,kj->imkn', R, f[None,None,:]*np.exp(-1j*evals[None,None,:]*(-1j*taus[:,None,None]-ts[None,:,None])), np.conj(R))[0,:,0,:]
+G2x2.RI = 1j*np.einsum('ij,mnj,kj->imkn', R, (f[None,None,:]-1.0)*np.exp(-1j*evals[None,None,:]*(ts[:,None,None]+1j*taus[None,:,None])), np.conj(R))[0,:,0,:]
 deltac  = np.tril(np.ones([Ntau,Ntau]), -1) + np.diag(0.5*np.ones(Ntau)) 
-G2x2.M  = 1j*np.einsum('ij,mnj,kj->mnik', R, (f[None,None,:]-deltac[:,:,None])*np.exp(-e2*(taus[:,None,None]-taus[None,:,None])), np.conj(R) 
+G2x2.M  = 1j*np.einsum('ij,mnj,kj->imkn', R, (f[None,None,:]-deltac[:,:,None])*np.exp(-evals[None,None,:]*(taus[:,None,None]-taus[None,:,None])), np.conj(R))[0,:,0,:]
 print 'G2x2\n',G2x2
+
+G2x2.mysave(savedir+'G2x2dir/G2x2.npy')
 
 # compute Sigma_embedding
 # Sigma = |lambda|^2 * g22(t,t')
@@ -126,11 +127,9 @@ Sigma.RI = 1j*(f-1.0)*np.exp(-1j*e2*(ts[:,None]+1j*taus[None,:]))
 deltac = np.tril(np.ones([Ntau,Ntau]), -1) + np.diag(0.5*np.ones(Ntau)) 
 Sigma.M  = 1j*(f-deltac)*np.exp(-e2*(taus[:,None]-taus[None,:]))
 Sigma.scale(lamb*np.conj(lamb))
-print 'Sigma phonon\n',Sigma_phonon
+print 'Sigma\n',Sigma
 
 #######-----------------------------------------------#########
-'''
-
 
 ## k2p is k indices to processor number
 k2p, k2i, i2k = init_k2p_k2i_i2k(Nkx, Nky, nprocs, myrank)
@@ -142,16 +141,6 @@ constants = (myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, Nt, Ntau, dt, dtau, pump, N
 
 if myrank==0:
     print "kpp =",kpp
-
-
-######### ---------------- testing --------------- ##########
-
-run_tests_vectorized_version(omega, i2k, constants)
-
-exit()
-
-######### ---------------------------------------- ##########
-
 
 UksR, UksI, eks, fks = init_Uks(*constants)
 
@@ -172,86 +161,41 @@ D = init_D(omega, Nt, Ntau, dt, dtau, Norbs)
 if myrank==0:
     print 'D\n', D
     
-Gloc_proc = langreth(Nt, Ntau, Norbs)
+G0 = langreth(Nt, Ntau, Norbs)
 temp = langreth(Nt, Ntau, Norbs)
-Sigma_phonon = langreth(Nt, Ntau, Norbs)
 
-# compute local Greens function for each processor
 for ik in range(kpp):
     ik1,ik2 = i2k[ik]
-    #G0k = compute_G0(ik1, ik2, myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, Nt, Ntau, dt, dtau, fks, UksR, UksI, eks, Norbs)
-    G0k = compute_G0(ik1, ik2, fks, UksR, UksI, eks, *constants)
-
-    Gloc_proc.add(G0k)
-
-exit()
+    G0 = compute_G0(ik1, ik2, fks, UksR, UksI, eks, *constants)
 
 if myrank==0:
     print "Initialization of D and G0k time ", time.time()-timeStart,'\n'
 
-iter_selfconsistency = 1
-for myiter in range(iter_selfconsistency):
-        
-    if myrank==0:
-        timeStart = time.time()
+temp.zero(Nt, Ntau, Norbs)
 
-    Sigma_phonon.zero(Nt, Ntau, Norbs)
+multiply(G0, Sigma, temp, Nt, Ntau, dt, dtau, Norbs)
+temp.scale(-1.0)
 
-    # store complete local Greens function in Sigma_phonon
-    comm.Allreduce(Gloc_proc.L,  Sigma_phonon.L,  op=MPI.SUM)
-    comm.Allreduce(Gloc_proc.G,  Sigma_phonon.G,  op=MPI.SUM)
-    comm.Allreduce(Gloc_proc.IR, Sigma_phonon.IR, op=MPI.SUM)
-    comm.Allreduce(Gloc_proc.RI, Sigma_phonon.RI, op=MPI.SUM)
-    comm.Allreduce(Gloc_proc.M,  Sigma_phonon.M,  op=MPI.SUM)
+temp.DR = np.ones(Norbs*Nt) / dt
+temp.DM = np.ones(Norbs*Ntau) / (-1j*dtau)
+G0 = solve(temp, G0, Nt, Ntau, dt, dtau, Norbs)
 
-    if myrank==0:
-        print 'max Gloc'
-        print Sigma_phonon
-        # save DOS
-        Sigma_phonon.mysave(savedir+'Glocdir/Gloc')
-
-    comm.barrier()
-    Sigma_phonon.directMultiply(D)
-    Sigma_phonon.scale(1j * g2 / volume)
-
-    if myrank==0:
-        print 'max Sigma_phonon'
-        print Sigma_phonon
-    
-        print "iteration",myiter
-        print "time computing phonon selfenergy ", time.time()-timeStart,'\n'
-        timeStart = time.time()
-
-    # unnecessary to compute DOS on the last iteration
-    if myiter<iter_selfconsistency-1:
-
-        Gloc_proc.zero(Nt, Ntau, Norbs)
-
-        for ik in range(kpp):
-            temp.zero(Nt, Ntau, Norbs)
-
-            ik1, ik2 = i2k[ik]
-            G0k = compute_G0(ik1, ik2, fks, UksR, UksI, eks, *constants)
-            #G0k = compute_G0(ik1, ik2, myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, Nt, Ntau, dt, dtau, fks, UksR, UksI, eks, Norbs)
-
-            multiply(G0k, Sigma_phonon, temp, Nt, Ntau, dt, dtau, Norbs)
-
-            temp.scale(-1.0)
-
-            temp.DR = np.ones(Norbs*Nt) / dt
-            temp.DM = np.ones(Norbs*Ntau) / (-1j*dtau)
-
-            temp = solve(temp, G0k, Nt, Ntau, dt, dtau, Norbs)
-
-            Gloc_proc.add(temp)
-
-    comm.barrier()       
-    if myrank==0:
-        print "Done iteration ", time.time()-timeStart,'\n'
-
-# save the selfenergy
 if myrank==0:
-    Sigma_phonon.mysave(savedir+'Sdir/S')
+    print "Done ", time.time()-timeStart,'\n'
+
+# save the Green's function
+if myrank==0:
+    G0.mysave(savedir+'Gdir/G.npy')
+
+
+if myrank==0:
+    # check the differences
+
+    print 'G0\n', G0
+    print 'G2x2\n', G2x2
+    G0.scale(-1.0)
+    G0.add(G2x2)
+    print 'difference\n',G0
     
 comm.barrier()        
 if myrank==0:
