@@ -25,6 +25,7 @@ import sys, os
 from functions import *
 from mpi4py import MPI
 import shutil
+from testing import *
 
 inputfile = sys.argv[1]
 savedir   = sys.argv[2]
