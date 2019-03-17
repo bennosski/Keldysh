@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.linalg import expm
 from scipy.linalg import block_diag
+import subprocess, os
 
 class langreth:
     # would be easier to have Nt, Ntau, Norbs as member variables
@@ -92,6 +93,13 @@ def parseline(mystr):
     ind = mystr.index('#')
     return mystr[ind+1:]
 
+def bash_command(cmd):
+    subprocess.Popen(['/bin/bash', '-c', cmd])
+
+def mymkdir(mydir):
+    if not os.path.exists(mydir):
+        print 'making ',mydir
+        os.mkdir(mydir)
 
 def setup_cuts(Nk):
     if False:
