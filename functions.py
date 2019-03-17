@@ -207,19 +207,8 @@ def init_k2p_k2i_i2k(Nkx, Nky, nprocs, myrank):
                 i2k.append([ik1,ik2])
     return k2p, k2i, i2k
 
-# note 1 on diagonal. This means that SigmaR is nonzero for t=t' which is good. 
-# matches G0 definition
-# is this the right choice? 
-def init_theta(NT):
-    theta = np.diag(0.5 * np.ones(NT))
-    for i in range(NT):
-        for j in range(i):
-            theta[i,j] = 1.0
-    return theta
-
 def init_block_theta(Nt, Norbs):
     # could try using scipy.block_diag for this
-
     theta = np.zeros([Norbs*Nt, Norbs*Nt])
     for a in range(Norbs):
         for b in range(Norbs):
@@ -271,7 +260,6 @@ def compute_G0(ik1, ik2, fks, UksR, UksI, eks, myrank, Nkx, Nky, ARPES, kpp, k2p
     G0 = langreth(Nt, Ntau, Norbs)
     
     beta  = dtau*Ntau
-    theta = init_theta(Ntau)
         
     kx, ky = get_kx_ky(ik1, ik2, Nkx, Nky, ARPES)
 
@@ -310,7 +298,6 @@ def init_D(omega, Nt, Ntau, dt, dtau, Norbs):
 
     beta = dtau*Ntau
     nB   = 1./(np.exp(beta*omega)-1.0)
-    theta = init_theta(Ntau)
     theta = np.tril(np.ones([Ntau,Ntau]), -1) + np.diag(0.5*np.ones(Ntau)) 
     
     ts = np.arange(0, Nt*dt, dt)
@@ -333,8 +320,6 @@ def init_D(omega, Nt, Ntau, dt, dtau, Norbs):
 
     return D
     
-
-
 def initRA(L, Nt, Norbs):
     # theta for band case
     theta = init_block_theta(Nt, Norbs)
@@ -359,11 +344,12 @@ def computeRelativeDifference(a, b):
         
 
 def multiply(a, b, c, Nt, Ntau, dt, dtau, Norbs):
+    '''
+    computes the langreth product of a and b and stores result in c
+    '''
 
     aR, aA = initRA(a, Nt, Norbs)
     bR, bA = initRA(b, Nt, Norbs)
-
-    #will this change a and b?
 
     aR  += np.diag(a.DR)
     aA  += np.diag(a.DR)
@@ -373,14 +359,10 @@ def multiply(a, b, c, Nt, Ntau, dt, dtau, Norbs):
     bA  += np.diag(b.DR)
     b.M += np.diag(b.DM)
 
-    #c = langreth(Nt, Ntau, Norbs)
     c.zero(Nt, Ntau, Norbs)
     
     np.dot(a.M * (-1j*dtau), b.M, c.M)
     
-    #np.dot(aR * (dt), bR, cR) 
-    #np.dot(aA * (dt), bA, cA) 
-
     mixed_product = np.zeros([Norbs*Nt, Norbs*Nt], dtype=complex)
     np.dot(a.RI * (-1j*dtau), b.IR, mixed_product)
 
