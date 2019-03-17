@@ -143,7 +143,17 @@ constants = (myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, Nt, Ntau, dt, dtau, pump, N
 if myrank==0:
     print "kpp =",kpp
 
-#UksR, UksI, eks, fks = init_Uks(myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, Nt, Ntau, dt, dtau, pump, Norbs)
+
+######### ---------------- testing --------------- ##########
+
+run_tests_vectorized_version(omega, i2k, constants)
+
+exit()
+
+######### ---------------------------------------- ##########
+
+
+
 UksR, UksI, eks, fks = init_Uks(*constants)
 
 if myrank==0:
@@ -155,28 +165,13 @@ if myrank==0:
 
 volume = Nkx*Nky
 
-######### ---------------- testing --------------- ##########
-
-run_tests_vectorized_version(omega, i2k, fks, UksR, UksI, eks, constants)
-
-
-########## ---------------- Compute the electron selfenergy due to phonons -------------------- ##############
-
 if myrank==0:
     timeStart = time.time()
 
 time0 = time.time()
 D = init_D(omega, Nt, Ntau, dt, dtau, Norbs)
-print 'new D time',time.time()-time0
-time0 = time.time()
-D_old = init_D_old(omega, Nt, Ntau, dt, dtau, Norbs)
-print 'old D time', time.time()-time0
 if myrank==0:
     print 'D\n', D
-    print 'D_test\n',D_test
-    D_old.scale(-1.0)
-    D_old.add(D)
-    print 'D-D_old\n',D_old
     
 Gloc_proc = langreth(Nt, Ntau, Norbs)
 temp = langreth(Nt, Ntau, Norbs)
@@ -187,13 +182,6 @@ for ik in range(kpp):
     ik1,ik2 = i2k[ik]
     #G0k = compute_G0(ik1, ik2, myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, Nt, Ntau, dt, dtau, fks, UksR, UksI, eks, Norbs)
     G0k = compute_G0(ik1, ik2, fks, UksR, UksI, eks, *constants)
-    G0k_old = compute_G0_old(ik1, ik2, fks, UksR, UksI, eks, *constants)
-
-    print 'G0k\n',G0k
-    print 'G0k2\n',G0k_old
-    G0k_old.scale(-1.0)
-    G0k_old.add(G0k)
-    print 'G0k-G0k_old\n',G0k_old
 
     Gloc_proc.add(G0k)
 

@@ -224,6 +224,43 @@ def init_Uks(myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, Nt, Ntau, dt, dtau, pump, N
     '''
     for ARPES, use Nky = 1 
     '''
+
+    beta = Ntau*dtau    
+    taus = np.arange(0, Ntau*dtau, dtau)
+    
+    UksR = np.zeros([kpp, Nt, Norbs, Norbs], dtype=complex)
+    UksI = np.zeros([kpp, Ntau, Norbs], dtype=complex)
+    fks  = np.zeros([kpp, Norbs], dtype=complex)
+    eks  = np.zeros([kpp, Norbs], dtype=complex)
+    
+    for ik1 in range(Nkx):
+        for ik2 in range(Nky):
+            if myrank==k2p[ik1,ik2]:                
+                index = k2i[ik1,ik2]
+
+                kx, ky = get_kx_ky(ik1, ik2, Nkx, Nky, ARPES)
+
+                prod = np.diag(np.ones(Norbs))
+                UksR[index,0] = prod.copy()
+                for it in range(1,Nt):
+                    tt = it*dt # - dt/2.0
+                    Ax, Ay, _ = compute_A(tt, Nt, dt, pump)
+                    prod = np.dot(expm(-1j*Hk(kx-Ax, ky-Ay)*dt), prod)
+                    UksR[index,it] = prod.copy()
+
+                eks[index] = band(kx, ky)
+                fks[index] = 1.0/(np.exp(beta*eks)+1.0)
+
+                # better way since all Hk commute at t=0
+                # pull R across the U(tau,0) when computing bare G so that we work with diagonal things
+                UksI[index] = np.exp(-eks[index][None,:]*taus[:,None])
+
+    return UksR, UksI, eks, fks
+
+def init_Uks_old(myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, Nt, Ntau, dt, dtau, pump, Norbs):
+    '''
+    for ARPES, use Nky = 1 
+    '''
     
     beta = Ntau*dtau
     
@@ -256,12 +293,29 @@ def init_Uks(myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, Nt, Ntau, dt, dtau, pump, N
                     UksI[index,it] = np.exp(-eks[index]*dtau*it)
                 
     return UksR, UksI, eks, fks
+
         
-def run_tests_vectorized_version(omega, i2k, fks, UksR, UksI, eks, constants):
+def run_tests_vectorized_version(omega, i2k, constants):
 
     myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, Nt, Ntau, dt, dtau, pump, Norbs = constants
 
+    if myrank!=0: return
+
     import time
+
+    time0 = time.time()
+    UksR, UksI, eks, fks = init_Uks(*constants)
+    print 'new init Uks took ',time.time()-time0
+
+    time0 = time.time()
+    UksR_old, UksI_old, eks_old, fks_old = init_Uks_old(*constants)
+    print 'old init Uks took ',time.time()-time0
+    
+    print 'diffs Uks'
+    print np.amax(abs(UksR-UksR_old))
+    print np.amax(abs(UksI-UksI_old))
+    print np.amax(abs(eks-eks_old))
+    print np.amax(abs(fks-fks_old))
 
     time0 = time.time()
     D = init_D(omega, Nt, Ntau, dt, dtau, Norbs)
@@ -288,8 +342,6 @@ def run_tests_vectorized_version(omega, i2k, fks, UksR, UksI, eks, constants):
         G0k_old.scale(-1.0)
         G0k_old.add(G0k)
         print 'G0k-G0k_old\n',G0k_old
-
-
 
 def compute_G0(ik1, ik2, fks, UksR, UksI, eks, myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, Nt, Ntau, dt, dtau, pump, Norbs):
 
