@@ -112,20 +112,20 @@ G2x2.G  = 1j*np.einsum('ij,mnj,kj->mnik', R, (f[None,None,:]-1.0)*np.exp(-1j*e2*
 G2x2.IR = 1j*np.einsum('ij,mnj,kj->mnik', R, f[None,None,:]*np.exp(-1j*e2*(-1j*taus[:,None,None]-ts[None,:,None])), np.conj(R))
 G2x2.RI = 1j*np.einsum('ij,mnj,kj->mnik', R, (f[None,None,:]-1.0)*np.exp(-1j*e2*(ts[:,None,None]+1j*taus[None,:,None])), np.conj(R))
 deltac  = np.tril(np.ones([Ntau,Ntau]), -1) + np.diag(0.5*np.ones(Ntau)) 
-G2x2.M  = 1j*np.einsum('ij,mnj,kj->mnik', R, (f[None,None,:]-deltac[:,:,None])*np.exp(-e2*(taus[:,None,None]-taus[None,:,None])), np.conj(R)) 
+G2x2.M  = 1j*np.einsum('ij,mnj,kj->mnik', R, (f[None,None,:]-deltac[:,:,None])*np.exp(-e2*(taus[:,None,None]-taus[None,:,None])), np.conj(R) 
 print 'G2x2\n',G2x2
 
 # compute Sigma_embedding
 # Sigma = |lambda|^2 * g22(t,t')
-Sigma_phonon = langreth(Nt, Ntau, Norbs)
+Sigma = langreth(Nt, Ntau, Norbs)
 f = 1.0/(np.exp(beta*e2)+1.0)
-Sigma_phonon.L  = 1j*f*np.exp(-1j*e2*(ts[:,None]-ts[None,:]))
-Sigma_phonon.G  = 1j*(f-1.0)*np.exp(-1j*e2*(ts[:,None]-ts[None,:]))
-Sigma_phonon.IR = 1j*f*np.exp(-1j*e2*(-1j*taus[:,None]-ts[None,:]))
-Sigma_phonon.RI = 1j*(f-1.0)*np.exp(-1j*e2*(ts[:,None]+1j*taus[None,:]))
+Sigma.L  = 1j*f*np.exp(-1j*e2*(ts[:,None]-ts[None,:]))
+Sigma.G  = 1j*(f-1.0)*np.exp(-1j*e2*(ts[:,None]-ts[None,:]))
+Sigma.IR = 1j*f*np.exp(-1j*e2*(-1j*taus[:,None]-ts[None,:]))
+Sigma.RI = 1j*(f-1.0)*np.exp(-1j*e2*(ts[:,None]+1j*taus[None,:]))
 deltac = np.tril(np.ones([Ntau,Ntau]), -1) + np.diag(0.5*np.ones(Ntau)) 
-Sigma_phonon.M  = 1j*(f-deltac)*np.exp(-e2*(taus[:,None]-taus[None,:]))
-Sigma_phonon.scale(lamb*np.conj(lamb))
+Sigma.M  = 1j*(f-deltac)*np.exp(-e2*(taus[:,None]-taus[None,:]))
+Sigma.scale(lamb*np.conj(lamb))
 print 'Sigma phonon\n',Sigma_phonon
 
 #######-----------------------------------------------#########
