@@ -38,6 +38,8 @@ debugdir = savedir + 'debugARPES/'
 if myrank==0:
     if not os.path.exists(debugdir):
         os.mkdir(debugdir)
+    if not os.path.exists(savedir+'ARPES'+LG+'/'):
+        os.mkdir(savedir+'ARPES'+LG+'/')
 comm.barrier()
 
 myfile = open(debugdir+"log%d"%myrank, 'w')
@@ -100,10 +102,10 @@ if pump==3:
 
 Nk = 1
 
-constants = (myrank, Nk, 1, ARPES, kpp, k2p, k2i, Nt, Ntau, dt, dtau, pump, Norbs)
-
 k2p, k2i, i2k = init_k2p_k2i_i2k(Nk, 1, nprocs, myrank)
 kpp = np.count_nonzero(k2p==myrank)
+
+constants = (myrank, Nk, 1, ARPES, kpp, k2p, k2i, Nt, Ntau, dt, dtau, pump, Norbs)
 
 #UksR, UksI, eks, fks = init_Uks(myrank, Nk, 1, True, kpp, k2p, k2i, Nt, Ntau, dt, dtau, pump, Norbs)
 UksR, UksI, eks, fks = init_Uks(*constants)
@@ -112,7 +114,7 @@ UksR, UksI, eks, fks = init_Uks(*constants)
 #probe_width = 2.4  # time units
 #probe_width = 5.0  # time units
 #probe_width = 3.0 # worked well
-probe_width = 10.0
+probe_width = 5.0
 
 Nw = 100
 
@@ -127,7 +129,7 @@ for it, t in enumerate(times):
             time_indices.append(it)
 
 if myrank==0:
-    print 'time indices. num = ',len(time_indices)
+    print 'time indices len = ',len(time_indices)
     print time_indices
 
 Nt_arpes = len(time_indices)
@@ -158,7 +160,6 @@ myfile.write('done initialize')
 # check for existing data
 counts = cAd.get_counts(savedir+'ARPES'+LG+'/')
 
-
 # split time indices based on rank%(Nkpoints)
 Nti = len(time_indices)            
                    
@@ -173,7 +174,7 @@ for ik in range(Nk):
         
         GLess = np.zeros([Nt, Nt], dtype=complex)
         #G0k = compute_G0(ik, myrank, Nk, 1, True, kpp, k2p, k2i, Nt, Ntau, dt, dtau, fks, UksR, UksI, eks, Norbs)
-        G0k = compute_G0(ik, fks, UksR, eks, *constants)
+        G0k = compute_G0(ik, 0, fks, UksR, UksI, eks, *constants)
 
         if myrank==0:
             print 'Memory usage after G0k: %s (kb)'% resource.getrusage(resource.RUSAGE_SELF).ru_maxrss

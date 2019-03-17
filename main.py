@@ -175,7 +175,17 @@ for ik in range(kpp):
     ik1,ik2 = i2k[ik]
     #G0k = compute_G0(ik1, ik2, myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, Nt, Ntau, dt, dtau, fks, UksR, UksI, eks, Norbs)
     G0k = compute_G0(ik1, ik2, fks, UksR, UksI, eks, *constants)
+    G0k2 = compute_G0_vectorized(ik1, ik2, fks, UksR, UksI, eks, *constants)
+
+    print 'G0k\n',G0k
+    print 'G0k2\n',G0k2
+    G0k2.scale(-1.0)
+    G0k2.add(G0k)
+    print 'G0k-G0k2\n',G0k2
+
     Gloc_proc.add(G0k)
+
+exit()
 
 if myrank==0:
     print "Initialization of D and G0k time ", time.time()-timeStart,'\n'

@@ -141,18 +141,24 @@ def band(kx, ky):
     
     #return 2.8 * np.sqrt(1. + 4*np.cos(3.0/2*ky)*np.cos(np.sqrt(3)*kx/2) + 4*np.cos(np.sqrt(3.)*kx/2)**2)
 
-    return sorted(np.linalg.eigvals(Hk(kx,ky)), reverse=True)
-   
+    #return sorted(np.linalg.eigvals(Hk(kx,ky)), reverse=True)
+    return np.linalg.eigvals(Hk(kx,ky))
+
 def get_kx_ky(ik1, ik2, Nkx, Nky, ARPES=False):
     if not ARPES:
         ky = 4*np.pi/3*ik1/Nkx + 2*np.pi/3*ik2/Nky
         kx = 2*np.pi/np.sqrt(3.)*ik2/Nky
     else:
-        f = (1./4+1./24) + (1./12) * ik/(Nkx-1)
+
+        '''
+        f = (1./4+1./24) + (1./12) * ik1/(Nkx-1)
         # cut along gamma - X
         # ik runs from 0 to Nk/2
         ky = 4*np.pi/3*f + 2*np.pi/3*f
         kx = 2*np.pi/np.sqrt(3.)*f
+        '''
+        kx = 0.0
+        ky = 0.0
 
     return kx, ky
 
@@ -246,8 +252,50 @@ def init_Uks(myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, Nt, Ntau, dt, dtau, pump, N
                 
     return UksR, UksI, eks, fks
         
+def compute_G0_vectorized(ik1, ik2, fks, UksR, UksI, eks, myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, Nt, Ntau, dt, dtau, pump, Norbs):
 
-#def compute_G0(ik1, ik2, myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, Nt, Ntau, dt, dtau, fks, UksR, UksI, eks, Norbs):
+    G0 = langreth(Nt, Ntau, Norbs)
+    
+    beta  = dtau*Ntau
+    theta = init_theta(Ntau)
+        
+    kx, ky = get_kx_ky(ik1, ik2, Nkx, Nky, ARPES)
+
+    # check if this is the right k point for this proc
+    # this should have been checked before calling this function
+    if myrank==k2p[ik1,ik2]:
+        index = k2i[ik1,ik2]
+    
+        # test this for 1x1 and 2x2 cases
+        evals, R = np.linalg.eig(Hk(kx, ky))
+        #evals = sorted(evals, reverse=True)
+
+        assert np.amax(abs(Hk(kx,ky)-np.einsum('ij,j,kj', R, evals, np.conj(R))))<1e-14
+
+        print('evals', evals)
+        print('eks[index]', eks[index])
+
+        assert np.amax(abs(evals-eks[index]))<1e-14
+
+        G  = 1j*np.einsum('mab,bc,c,dc,ned->amen', UksR[index], R, fks[index]-0.0, np.conj(R), np.conj(UksR[index]))
+        G0.L = np.reshape(G, [Nt*Norbs, Nt*Norbs])
+
+        G  = 1j*np.einsum('mab,bc,c,dc,ned->amen', UksR[index], R, fks[index]-1.0, np.conj(R), np.conj(UksR[index]))
+        G0.G = np.reshape(G, [Nt*Norbs, Nt*Norbs])
+
+        G  = 1j*np.einsum('mab,bc,c,nc,dc->amdn', UksR[index], R, fks[index], 1.0/UksI[index], np.conj(R))
+        G0.RI = np.reshape(G, [Nt*Norbs, Ntau*Norbs])
+        
+        G  = 1j*np.einsum('ab,mb,b,cb,ndc->amdn', R, UksI[index], fks[index]-1.0, np.conj(R), np.conj(UksR[index]))
+        G0.IR = np.reshape(G, [Ntau*Norbs, Nt*Norbs])
+        
+        theta = np.tril(np.ones([Ntau,Ntau]), -1) + np.diag(0.5*np.ones(Ntau)) 
+        G  = 1j*np.einsum('ab,mb,mnb,nb,cb->amcn', R, UksI[index], fks[index][None,None,:]-theta[:,:,None], 1.0/UksI[index], np.conj(R))
+        G0.M = np.reshape(G, [Ntau*Norbs, Ntau*Norbs])
+
+    return G0
+
+
 def compute_G0(ik1, ik2, fks, UksR, UksI, eks, myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, Nt, Ntau, dt, dtau, pump, Norbs):
     # for ARPES use ik2 = 0
 
@@ -287,7 +335,7 @@ def compute_G0(ik1, ik2, fks, UksR, UksI, eks, myrank, Nkx, Nky, ARPES, kpp, k2p
                 #UksI_inv = [UksI[index,it2,1], UksI[index,it2,0]]
                 #G = fks[index] * UksI_inv
                 G = fks[index] / UksI[index,it2]
-                G = np.einsum('ij,jk,kl,lm->im', UksR[index,it1], R, np.diag(G), np.conj(R).T)
+                G = 1j*np.einsum('ij,jk,kl,lm->im', UksR[index,it1], R, np.diag(G), np.conj(R).T)
                 #G = np.einsum('ij,jk,kl->il', UksR[index,it1], G0L,  )
                 for a in range(Norbs):
                     for b in range(Norbs):
@@ -299,7 +347,7 @@ def compute_G0(ik1, ik2, fks, UksR, UksI, eks, myrank, Nkx, Nky, ARPES, kpp, k2p
                 t2 = it2 * dt
 
                 G = -UksI[index,it1]*fks[index]*np.exp(beta*eks[index])
-                G = np.einsum('ij,jk,kl,lm->im', R, np.diag(G), np.conj(R).T, np.conj(UksR[index,it2]).T)  
+                G = 1j*np.einsum('ij,jk,kl,lm->im', R, np.diag(G), np.conj(R).T, np.conj(UksR[index,it2]).T)  
                 #G = np.einsum('ij,jk,kl->il',  , G0G, np.conj(UksR[index,it2]).T)
                 for a in range(Norbs):
                     for b in range(Norbs):
