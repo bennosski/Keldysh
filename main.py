@@ -15,6 +15,7 @@ from functions import *
 from mpi4py import MPI
 import shutil
 from testing import *
+import plot as plt
 
 savedir   = sys.argv[1]
 
@@ -96,19 +97,19 @@ def main(Sigma, Nt, Ntau, dt, dtau, Nkx, Nky, g2, omega, pump):
     temp.scale(-1.0)
     temp.DR = np.ones(Norbs*Nt) / dt
     temp.DM = np.ones(Norbs*Ntau) / (-1j*dtau)
-    G0 = solve(temp, G0, Nt, Ntau, dt, dtau, Norbs)
+    G = solve(temp, G0, Nt, Ntau, dt, dtau, Norbs)
 
     comm.barrier()        
     if myrank==0:
         print 'finished program'
         print 'total time ',time.time()-time0
 
-    return G0
+    return G0, G
 
 
 if __name__=='__main__':
 
-    Nt = 100
+    Nt = 1000
     dt = 0.01
     Ntau = 100
     dtau = 0.01
@@ -122,7 +123,7 @@ if __name__=='__main__':
 
     e1   =  Hk(0,0)[0]
     e2   =  0.1
-    lamb =  0.5
+    lamb =  1.0
     h = np.array([[e1, lamb], [np.conj(lamb), e2]], dtype=complex)
 
     print 'h\n',h
@@ -148,8 +149,7 @@ if __name__=='__main__':
     G2x2.IR = 1j*np.einsum('ij,mnj,kj->imkn', R, (f[None,None,:]-1.0)*np.exp(-1j*evals[None,None,:]*(-1j*taus[:,None,None]-ts[None,:,None])), np.conj(R))[0,:,0,:]
     G2x2.M  = 1j*np.einsum('ij,mnj,kj->imkn', R, (f[None,None,:]-deltac[:,:,None])*np.exp(-evals[None,None,:]*(taus[:,None,None]-taus[None,:,None])), np.conj(R))[0,:,0,:]
     print 'G2x2\n',G2x2
-    G2x2.mysave(savedir+'G2x2dir/G2x2.npy')
-
+    
     # compute Sigma_embedding
     # Sigma = |lambda|^2 * g22(t,t')
     Sigma = langreth(Nt, Ntau, Norbs)
@@ -164,7 +164,9 @@ if __name__=='__main__':
 
     #######-----------------------------------------------#########
 
-    G = main(Sigma, Nt, Ntau, dt, dtau, Nkx, Nky, g2, omega, pump)
+    G0, G = main(Sigma, Nt, Ntau, dt, dtau, Nkx, Nky, g2, omega, pump)
+
+    plt.myplot(G0, G2x2, G, savedir, Nt, Ntau, dt, dtau)
     
     print 'G\n',G
     G.scale(-1.0)
