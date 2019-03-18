@@ -92,7 +92,7 @@ def main(Sigma, Nt, Ntau, dt, dtau, Nkx, Nky, g2, omega, pump):
 
     temp.zero(Nt, Ntau, Norbs)
 
-    multiply(G0, Sigma, temp, Nt, Ntau, dt, dtau, Norbs)
+    temp = multiply(G0, Sigma, Nt, Ntau, dt, dtau, Norbs)
     temp.scale(-1.0)
     temp.DR = np.ones(Norbs*Nt) / dt
     temp.DM = np.ones(Norbs*Ntau) / (-1j*dtau)
