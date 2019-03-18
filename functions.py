@@ -362,25 +362,74 @@ def multiply(a, b, c, Nt, Ntau, dt, dtau, Norbs):
     c.zero(Nt, Ntau, Norbs)
     
     np.dot(a.M * (-1j*dtau), b.M, c.M)
-    
+
     mixed_product = np.zeros([Norbs*Nt, Norbs*Nt], dtype=complex)
     np.dot(a.RI * (-1j*dtau), b.IR, mixed_product)
 
     temp1 = np.zeros([Norbs*Nt, Norbs*Nt], dtype=complex)
-
     np.dot(a.G, bA, temp1)
     c.G  = temp1.copy()
     np.dot(aR, b.G, temp1)
     c.G += temp1
     c.G *= dt
-    c.G + mixed_product
+    c.G += mixed_product
 
     np.dot(a.L, bA, temp1)
     c.L  = temp1.copy()
     np.dot(aR, b.L, temp1)
     c.L += temp1
     c.L *= dt
-    c.L + mixed_product
+    c.L += mixed_product
+
+    temp1 = np.zeros([Norbs*Nt, Norbs*Ntau], dtype=complex)
+    np.dot(aR * (dt), b.RI, temp1)
+    c.RI = temp1.copy()
+    np.dot(a.RI * (-1j*dtau), b.M, temp1)
+    c.RI += temp1
+
+    temp1 = np.zeros([Norbs*Ntau, Norbs*Nt], dtype=complex)
+    np.dot(a.IR * (dt), bA, temp1)
+    c.IR = temp1.copy()
+    np.dot(a.M * (-1j*dtau), b.IR, temp1)
+    c.IR += temp1
+
+def multiply(a, b, c, Nt, Ntau, dt, dtau, Norbs):
+    '''
+    computes the langreth product of a and b and stores result in c
+    '''
+
+    aR, aA = initRA(a, Nt, Norbs)
+    bR, bA = initRA(b, Nt, Norbs)
+
+    aR  += np.diag(a.DR)
+    aA  += np.diag(a.DR)
+    a.M += np.diag(a.DM)
+
+    bR  += np.diag(b.DR)
+    bA  += np.diag(b.DR)
+    b.M += np.diag(b.DM)
+
+    c.zero(Nt, Ntau, Norbs)
+    
+    np.dot(a.M * (-1j*dtau), b.M, c.M)
+
+    mixed_product = np.zeros([Norbs*Nt, Norbs*Nt], dtype=complex)
+    np.dot(a.RI * (-1j*dtau), b.IR, mixed_product)
+
+    temp1 = np.zeros([Norbs*Nt, Norbs*Nt], dtype=complex)
+    np.dot(a.G, bA, temp1)
+    c.G  = temp1.copy()
+    np.dot(aR, b.G, temp1)
+    c.G += temp1
+    c.G *= dt
+    c.G += mixed_product
+
+    np.dot(a.L, bA, temp1)
+    c.L  = temp1.copy()
+    np.dot(aR, b.L, temp1)
+    c.L += temp1
+    c.L *= dt
+    c.L += mixed_product
 
     temp1 = np.zeros([Norbs*Nt, Norbs*Ntau], dtype=complex)
     np.dot(aR * (dt), b.RI, temp1)
