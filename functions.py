@@ -224,10 +224,11 @@ def init_Uks(myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, Nt, Ntau, dt, dtau, pump, N
     '''
 
     beta = Ntau*dtau    
-    taus = np.arange(0, Ntau*dtau, dtau)
+    taus = np.linspace(0, (Ntau-1)*dtau, Ntau)
     
+
     UksR = np.zeros([kpp, Nt, Norbs, Norbs], dtype=complex)
-    UksI = np.zeros([kpp, Ntau, Norbs], dtype=complex)
+    UksI = np.zeros([2, kpp, Ntau, Norbs], dtype=complex)
     fks  = np.zeros([kpp, Norbs], dtype=complex)
     eks  = np.zeros([kpp, Norbs], dtype=complex)
     
@@ -251,7 +252,11 @@ def init_Uks(myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, Nt, Ntau, dt, dtau, pump, N
 
                 # better way since all Hk commute at t=0
                 # pull R across the U(tau,0) when computing bare G so that we work with diagonal things
-                UksI[index] = np.exp(-eks[index][None,:]*taus[:,None])
+
+                # Uk(tau)
+                UksI[0,index] = np.exp(-eks[index][None,:]*taus[:,None])
+                # Uk(beta-tau)
+                UksI[1,index] = np.exp(+eks[index][None,:]*(beta-taus[:,None]))
 
     return UksR, UksI, eks, fks
 
@@ -280,14 +285,14 @@ def compute_G0(ik1, ik2, fks, UksR, UksI, eks, myrank, Nkx, Nky, ARPES, kpp, k2p
         G  = 1j*np.einsum('mab,bc,c,dc,ned->amen', UksR[index], R, fks[index]-1.0, np.conj(R), np.conj(UksR[index]))
         G0.G = np.reshape(G, [Nt*Norbs, Nt*Norbs])
 
-        G  = 1j*np.einsum('mab,bc,c,nc,dc->amdn', UksR[index], R, fks[index], 1.0/UksI[index], np.conj(R))
+        G  = 1j*np.einsum('mab,bc,c,nc,dc->amdn', UksR[index], R, fks[index], 1.0/UksI[0,index], np.conj(R))
         G0.RI = np.reshape(G, [Nt*Norbs, Ntau*Norbs])
         
-        G  = 1j*np.einsum('ab,mb,b,cb,ndc->amdn', R, UksI[index], fks[index]-1.0, np.conj(R), np.conj(UksR[index]))
+        G  = 1j*np.einsum('ab,mb,b,cb,ndc->amdn', R, UksI[1,index], -fks[index], np.conj(R), np.conj(UksR[index]))
         G0.IR = np.reshape(G, [Ntau*Norbs, Nt*Norbs])
         
         theta = np.tril(np.ones([Ntau,Ntau]), -1) + np.diag(0.5*np.ones(Ntau)) 
-        G  = 1j*np.einsum('ab,mb,mnb,nb,cb->amcn', R, UksI[index], fks[index][None,None,:]-theta[:,:,None], 1.0/UksI[index], np.conj(R))
+        G  = 1j*np.einsum('ab,mb,mnb,nb,cb->amcn', R, UksI[0,index], fks[index][None,None,:]-theta[:,:,None], 1.0/UksI[0,index], np.conj(R))
         G0.M = np.reshape(G, [Ntau*Norbs, Ntau*Norbs])
 
     return G0
@@ -300,8 +305,10 @@ def init_D(omega, Nt, Ntau, dt, dtau, Norbs):
     nB   = 1./(np.exp(beta*omega)-1.0)
     theta = np.tril(np.ones([Ntau,Ntau]), -1) + np.diag(0.5*np.ones(Ntau)) 
     
-    ts = np.arange(0, Nt*dt, dt)
-    taus = np.arange(0, Ntau*dtau, dtau)
+    #ts = np.arange(0, Nt*dt, dt)
+    #taus = np.arange(0, Ntau*dtau, dtau)
+    ts = np.linspace(0, (Nt-1)*dt, Nt)
+    taus = np.linspace(0, (Ntau-1)*dtau, Ntau)
 
     x = -1j*(nB+1.0-0.0)*np.exp(1j*omega*(ts[:,None]-ts[None,:])) - 1j*(nB+0.0)*np.exp(-1j*omega*(ts[:,None]-ts[None,:]))
     D.L = block_diag(*[x]*Norbs)

@@ -109,78 +109,99 @@ def main(Sigma, Nt, Ntau, dt, dtau, Nkx, Nky, g2, omega, pump):
 
 if __name__=='__main__':
 
-    Nt = 1000
-    dt = 0.01
-    Ntau = 100
-    dtau = 0.01
-    Nkx = 1
-    Nky = 1
-    pump = 0
-    g2 = None
-    omega = None
+    tmax = 100.0
+    taumax = 1.0
 
-    Norbs = np.shape(Hk(0,0))[0]
+    diffs_vs_deltat = []
 
-    e1   =  Hk(0,0)[0]
-    e2   =  0.1
-    lamb =  1.0
-    h = np.array([[e1, lamb], [np.conj(lamb), e2]], dtype=complex)
+    dts = (0.5,)
+    #dts = np.e**np.linspace(np.log(0.1), np.log(0.005), 10)
+    for deltat in dts:
 
-    print 'h\n',h
-    evals,R = np.linalg.eig(h)
-
-    beta = Ntau*dtau
-    ts   = np.arange(0, Nt*dt, dt)
-    taus = np.arange(0, beta, dtau)
-
-    print 'len ts', len(ts)
-    print 'len taus', len(taus)
-
-    # compute non-interacting G
-    # loop over evals to determine which form to use for f times the exponential based on the sign of each eval
-
-    deltac  = np.tril(np.ones([Ntau,Ntau]), -1) + np.diag(0.5*np.ones(Ntau)) 
-
-    G2x2 = langreth(Nt, Ntau, 2)
-    f = 1.0/(np.exp(beta*evals)+1.0)
-    G2x2.L  = 1j*np.einsum('ij,mnj,kj->imkn', R, f[None,None,:]*np.exp(-1j*evals[None,None,:]*(ts[:,None,None]-ts[None,:,None])), np.conj(R))[0,:,0,:]
-    G2x2.G  = 1j*np.einsum('ij,mnj,kj->imkn', R, (f[None,None,:]-1.0)*np.exp(-1j*evals[None,None,:]*(ts[:,None,None]-ts[None,:,None])), np.conj(R))[0,:,0,:]
-    G2x2.RI = 1j*np.einsum('ij,mnj,kj->imkn', R, f[None,None,:]*np.exp(-1j*evals[None,None,:]*(ts[:,None,None]+1j*taus[None,:,None])), np.conj(R))[0,:,0,:]
-    G2x2.IR = 1j*np.einsum('ij,mnj,kj->imkn', R, (f[None,None,:]-1.0)*np.exp(-1j*evals[None,None,:]*(-1j*taus[:,None,None]-ts[None,:,None])), np.conj(R))[0,:,0,:]
-    G2x2.M  = 1j*np.einsum('ij,mnj,kj->imkn', R, (f[None,None,:]-deltac[:,:,None])*np.exp(-evals[None,None,:]*(taus[:,None,None]-taus[None,:,None])), np.conj(R))[0,:,0,:]
-    print 'G2x2\n',G2x2
+        print 'deltat',deltat
     
-    # compute Sigma_embedding
-    # Sigma = |lambda|^2 * g22(t,t')
-    Sigma = langreth(Nt, Ntau, Norbs)
-    f = 1.0/(np.exp(beta*e2)+1.0)
-    Sigma.L  = 1j*f*np.exp(-1j*e2*(ts[:,None]-ts[None,:]))
-    Sigma.G  = 1j*(f-1.0)*np.exp(-1j*e2*(ts[:,None]-ts[None,:]))
-    Sigma.RI = 1j*f*np.exp(-1j*e2*(ts[:,None]+1j*taus[None,:]))
-    Sigma.IR = 1j*(f-1.0)*np.exp(-1j*e2*(-1j*taus[:,None]-ts[None,:]))
-    Sigma.M  = 1j*(f-deltac)*np.exp(-e2*(taus[:,None]-taus[None,:]))
-    Sigma.scale(lamb*np.conj(lamb))
-    print 'Sigma\n',Sigma
+        Nt = int(round(tmax/deltat))
+        dt = deltat
+        Ntau = int(round(taumax/deltat))
+        dtau = deltat
 
-    #######-----------------------------------------------#########
+        Nkx = 1
+        Nky = 1
+        pump = 0
+        g2 = None
+        omega = None
 
-    G0, G = main(Sigma, Nt, Ntau, dt, dtau, Nkx, Nky, g2, omega, pump)
+        Norbs = np.shape(Hk(0,0))[0]
 
-    plt.myplot(G0, G2x2, G, savedir, Nt, Ntau, dt, dtau)
-    
-    print 'G\n',G
-    G.scale(-1.0)
-    G.add(G2x2)
+        e1   =  Hk(0,0)[0]
+        e2   =  0.1
+        lamb =  0.5
+        h = np.array([[e1, lamb], [np.conj(lamb), e2]], dtype=complex)
 
-    #def diff(x, xtrue): return np.mean(np.abs(x-xtrue)/np.abs(xtrue))
-    def diff(d, xtrue): return np.mean(np.abs(d)/np.abs(xtrue))
-     
-    diffs = [diff(G.L,  G2x2.L),
-             diff(G.G,  G2x2.G),
-             diff(G.RI, G2x2.RI),
-             diff(G.IR, G2x2.IR),
-             diff(G.M,  G2x2.M)]
-    print 'diffs', diffs
+        print 'h\n',h
+        evals,R = np.linalg.eig(h)
+
+        beta = Ntau*dtau
+        #ts   = np.arange(0, Nt*dt, dt)
+        #taus = np.arange(0, beta, dtau)
+        ts = np.linspace(0, (Nt-1)*dt, Nt)
+        taus = np.linspace(0, (Ntau-1)*dtau, Ntau)
+
+        print 'len ts', len(ts)
+        print 'len taus', len(taus)
+
+        # compute non-interacting G
+        # loop over evals to determine which form to use for f times the exponential based on the sign of each eval
+
+        deltac  = np.tril(np.ones([Ntau,Ntau]), -1) + np.diag(0.5*np.ones(Ntau)) 
+
+        G2x2 = langreth(Nt, Ntau, 2)
+        f = 1.0/(np.exp(beta*evals)+1.0)
+        G2x2.L  = 1j*np.einsum('ij,mnj,kj->imkn', R, f[None,None,:]*np.exp(-1j*evals[None,None,:]*(ts[:,None,None]-ts[None,:,None])), np.conj(R))[0,:,0,:]
+        G2x2.G  = 1j*np.einsum('ij,mnj,kj->imkn', R, (f[None,None,:]-1.0)*np.exp(-1j*evals[None,None,:]*(ts[:,None,None]-ts[None,:,None])), np.conj(R))[0,:,0,:]
+        G2x2.RI = 1j*np.einsum('ij,mnj,kj->imkn', R, f[None,None,:]*np.exp(-1j*evals[None,None,:]*(ts[:,None,None]+1j*taus[None,:,None])), np.conj(R))[0,:,0,:]
+        G2x2.IR = 1j*np.einsum('ij,mnj,kj->imkn', R, (f[None,None,:]-1.0)*np.exp(-1j*evals[None,None,:]*(-1j*taus[:,None,None]-ts[None,:,None])), np.conj(R))[0,:,0,:]
+        G2x2.M  = 1j*np.einsum('ij,mnj,kj->imkn', R, (f[None,None,:]-deltac[:,:,None])*np.exp(-evals[None,None,:]*(taus[:,None,None]-taus[None,:,None])), np.conj(R))[0,:,0,:]
+        print 'G2x2\n',G2x2
+
+        # compute Sigma_embedding
+        # Sigma = |lambda|^2 * g22(t,t')
+        Sigma = langreth(Nt, Ntau, Norbs)
+        f = 1.0/(np.exp(beta*e2)+1.0)
+        Sigma.L  = 1j*f*np.exp(-1j*e2*(ts[:,None]-ts[None,:]))
+        Sigma.G  = 1j*(f-1.0)*np.exp(-1j*e2*(ts[:,None]-ts[None,:]))
+        Sigma.RI = 1j*f*np.exp(-1j*e2*(ts[:,None]+1j*taus[None,:]))
+        Sigma.IR = 1j*(f-1.0)*np.exp(-1j*e2*(-1j*taus[:,None]-ts[None,:]))
+        Sigma.M  = 1j*(f-deltac)*np.exp(-e2*(taus[:,None]-taus[None,:]))
+        Sigma.scale(lamb*np.conj(lamb))
+        print 'Sigma\n',Sigma
+
+        #######-----------------------------------------------#########
+
+        G0, G = main(Sigma, Nt, Ntau, dt, dtau, Nkx, Nky, g2, omega, pump)
+
+        # plotting
+        #plt.myplot(G0, G2x2, G, savedir, Nt, Ntau, dt, dtau)
+
+        print 'G\n',G
+        G.scale(-1.0)
+        G.add(G2x2)
+
+        def diff(d, xtrue): return np.mean(np.abs(d))
+
+        diffs = [diff(G.L,  G2x2.L),
+                 diff(G.G,  G2x2.G),
+                 diff(G.RI, G2x2.RI),
+                 diff(G.IR, G2x2.IR),
+                 diff(G.M,  G2x2.M)]
+        print 'diffs', diffs
+
+        diffs.append(np.sum(diffs[:3]))
+
+        diffs_vs_deltat.append(diffs[:])
+
+    np.save(savedir+'diffs', diffs_vs_deltat)
+    np.save(savedir+'dts', dts)
 
     MPI.Finalize()
     
