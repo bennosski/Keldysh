@@ -5,23 +5,25 @@ Created on Thu Dec 08 01:44:04 2016
 @author: Ben
 """
 
-# stability of bare G and D on imaginary axis -- rewrite fermi functions and exponentials
-
+try:
+    from mpi4py import MPI
+    comm = MPI.COMM_WORLD
+    nprocs = comm.size
+    myrank = comm.rank
+except ImportError:
+    nprocs = 1
+    myrank = 1
+    
 import pdb
 import numpy as np
 import time
 import sys, os
 from functions import *
-from mpi4py import MPI
 import shutil
 from testing import *
-import plot as plt
+#import plot as plt
 
 savedir   = sys.argv[1]
-
-comm = MPI.COMM_WORLD
-nprocs = comm.size
-myrank = comm.rank
 
 if myrank==0:
     time0 = time.time()
@@ -33,7 +35,6 @@ if myrank==0:
 mymkdir(savedir)
 mymkdir(savedir+'Gdir/')
 mymkdir(savedir+'G2x2dir/')
-comm.barrier()
 
 def main(Sigma, Nt, Ntau, dt, dtau, Nkx, Nky, g2, omega, pump):
         
@@ -74,7 +75,6 @@ def main(Sigma, Nt, Ntau, dt, dtau, Nkx, Nky, g2, omega, pump):
     if myrank==0:
         print "done with Uks initialization"
 
-    comm.barrier()        
     if myrank==0:
         print "Initialization time ", time.time()-startTime,'\n'
 
@@ -99,7 +99,6 @@ def main(Sigma, Nt, Ntau, dt, dtau, Nkx, Nky, g2, omega, pump):
     temp.DM = np.ones(Norbs*Ntau) / (-1j*dtau)
     G = solve(temp, G0, Nt, Ntau, dt, dtau, Norbs)
 
-    comm.barrier()        
     if myrank==0:
         print 'finished program'
         print 'total time ',time.time()-time0
@@ -203,7 +202,7 @@ if __name__=='__main__':
     np.save(savedir+'diffs', diffs_vs_deltat)
     np.save(savedir+'dts', dts)
 
-    MPI.Finalize()
-    
+    if 'MPI' in sys.modules:
+        MPI.Finalize()
 
     
