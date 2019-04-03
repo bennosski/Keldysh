@@ -13,15 +13,18 @@ class langreth:
         self.ntau = M.ntau
         self.beta = M.beta
         self.sig  = M.sig
-        self.order = M.order
         self.norb  = M.norb
         
         self.dtau = M.dtau
         self.dt   = 1.0*self.tmax/(self.nt-1)
+
+        nt = self.nt
+        ntau = self.ntau
+        norb = self.norb
         
-        self.L  = np.zeros([nt*norb,   nt*norb], dtype=np.complex128)
-        self.R  = np.zeros([nt*norb,   nt*norb], dtype=np.complex128)
-        self.IR = np.zeros([ntau*norb, nt*norb], dtype=np.complex128)
+        self.L  = np.zeros([nt, norb, nt, norb], dtype=np.complex128)
+        self.R  = np.zeros([nt, norb, nt, norb], dtype=np.complex128)
+        self.IR = np.zeros([ntau, norb, nt, norb], dtype=np.complex128)
         self.M  = M.M
     #---------------------------------------------------     
     def add(self, b):
@@ -44,13 +47,10 @@ class langreth:
         #self.M  = b.M.copy()
     #---------------------------------------------------     
     def zero(self):
-        nt = self.nt
-        norb = self.norbs
-        ntau = self.ntau
-        self.L = np.zeros_like(self.L)
-        self.R = np.zeros_like(self.R)
+        self.L  = np.zeros_like(self.L)
+        self.R  = np.zeros_like(self.R)
         self.IR = np.zeros_like(self.IR)
-        self.M = np.zeros_like(self.M)
+        self.M  = np.zeros_like(self.M)
     #---------------------------------------------------     
     def mysave(self, myfile):
         np.save(myfile+'L', self.L)
@@ -123,15 +123,15 @@ def compute_G0R(ik1, ik2, GM, UksR, UksI, eks, fks, Rs, myrank, Nkx, Nky, ARPES,
     if myrank==k2p[ik1,ik2]:
         index = k2i[ik1,ik2]
             
-        G  = 1j*np.einsum('mab,bc,c,dc,ned->mane', UksR[index], Rs[index], fks[index]-0.0, np.conj(Rs[index]), np.conj(UksR[index]))
-        G0.L = np.reshape(G, [nt*norb, nt*norb])
+        G0.L  = 1j*np.einsum('mab,bc,c,dc,ned->mane', UksR[index], Rs[index], fks[index]-0.0, np.conj(Rs[index]), np.conj(UksR[index]))
+        #G0.L = np.reshape(G, [nt*norb, nt*norb])
 
         G  = 1j*np.einsum('mab,bc,c,dc,ned->mane', UksR[index], Rs[index], fks[index]-1.0, np.conj(Rs[index]), np.conj(UksR[index]))
-        G = np.reshape(G, [nt*norb, nt*norb])
+        #G = np.reshape(G, [nt*norb, nt*norb])
         G0.R = G - G0.L
                 
-        G  = 1j*np.einsum('ab,mb,b,cb,ndc->mand', Rs[index], UksI[1,index], -fks[index], np.conj(Rs[index]), np.conj(UksR[index]))
-        G0.IR = np.reshape(G, [ntau*norb, nt*norb])
+        G0.IR  = 1j*np.einsum('ab,mb,b,cb,ndc->mand', Rs[index], UksI[1,index], -fks[index], np.conj(Rs[index]), np.conj(UksR[index]))
+        #G0.IR = np.reshape(G, [ntau*norb, nt*norb])
         
     return G0
 #---------------------------------------------------
@@ -161,7 +161,7 @@ def compute_D0R(DM, omega, nt, tmax):
     x = -1j*(nB+1.0-1.0)*np.exp(1j*omega*(-1j*taus[:,None]-ts[None,:])) - 1j*(nB+1.0)*np.exp(-1j*omega*(-1j*taus[:,None]-ts[None,:]))
     D0.IR = block_diag(x, norb)
     
-    return D
+    return D0
 #---------------------------------------------------
 
 

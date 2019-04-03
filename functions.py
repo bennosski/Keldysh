@@ -1,7 +1,8 @@
 import numpy as np
 
 def block_diag(x, norb):
-    return np.reshape(np.einsum('xy,ab->xayb', x, np.diag(np.ones(norb))), [np.shape(x)[0]*norb, np.shape(y)[0]*norb])
+    #return np.reshape(np.einsum('xy,ab->xayb', x, np.diag(np.ones(norb))), [np.shape(x)[0]*norb, np.shape(y)[0]*norb])
+    return np.einsum('xy,ab->xayb', x, np.diag(np.ones(norb)))
 
 def setup_cuts(Nk):
     if False:

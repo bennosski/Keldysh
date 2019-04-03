@@ -63,8 +63,6 @@ def main():
     ntaus = [200]
     
     for ntau in ntaus:
-
-        integrator = integration.integrator(nt, ntau, 5)
         
         #---------------------------------------------------------
         # compute non-interacting G for the 2x2 problem (exact solution)
@@ -97,13 +95,14 @@ def main():
         G0 = compute_G0M(0, 0, UksR, UksI, eks, fks, Rs, *constants)
         
         G = matsubara(beta, ntau, norb, -1)
-        integrator.dyson_matsubara(G0, Sigma, G)
 
-        G2x2M = np.reshape(G2x2.M, [ntau, 2, 2])
+        integrator = integration.integrator(5, nt, beta, ntau, norb)
+
+        integrator.dyson_matsubara(G0, Sigma, G)
 
         #plt(linspace(0,beta,ntau), [G.M[:,0].imag, G2x2M[:,0,0].imag], 'Gsol and G2x2')
         
-        print('diff = %1.3e'%np.amax(abs(G.M[:,0]-G2x2M[:,0,0])))
+        print('diff = %1.3e'%np.amax(abs(G.M[:,0,0]-G2x2.M[:,0,0])))
 
         #------------------------------------------------------
         

@@ -10,7 +10,7 @@ class matsubara:
         self.sig = sig
 
         self.dtau = 1.0*self.beta/(self.ntau-1)
-        self.M = np.zeros([ntau*norb, norb], dtype=np.complex128)
+        self.M = np.zeros([ntau, norb, norb], dtype=np.complex128)
     #---------------------------------------------------
     def scale(self, c):
         self.M *= c
@@ -30,15 +30,12 @@ def compute_G0M(ik1, ik2, UksR, UksI, eks, fks, Rs, myrank, Nkx, Nky, ARPES, kpp
     
     kx, ky = get_kx_ky(ik1, ik2, Nkx, Nky, ARPES)
 
-    print('myrank', myrank)
-    print('k2p', k2p[ik1,ik2])
-    
     if myrank==k2p[ik1,ik2]:
         index = k2i[ik1,ik2]
             
         # R * e^((beta-tau)*ek) * [-f(ek)] * R^dagger
-        G = 1j*np.einsum('ab,mb,b,cb->mac', Rs[index], UksI[1,index], -fks[index], np.conj(Rs[index]))
-        G0.M = np.reshape(G, [ntau*norb, norb])
+        G0.M = 1j*np.einsum('ab,mb,b,cb->mac', Rs[index], UksI[1,index], -fks[index], np.conj(Rs[index]))
+        #G0.M = np.reshape(G, [ntau*norb, norb])
         
     return G0
 #---------------------------------------------------
@@ -53,6 +50,6 @@ def compute_D0M(omega, beta, ntau, norb):
 
     # check this carefully
     x = -1j*(nB+0.0)*np.exp(omega*taus) - 1j*(nB+1.0)*np.exp(-omega*(taus))
-    D0.M = np.reshape(np.einsum('t,ab->tab', x, np.diag(np.ones(norb))), [ntau*norb, norb]) 
+    D0.M = np.einsum('t,ab->tab', x, np.diag(np.ones(norb)))
         
-    return D
+    return D0
