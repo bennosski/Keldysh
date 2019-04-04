@@ -14,7 +14,7 @@ class integrator:
         self.ntau = ntau
         self.dtau = 1.0*beta/(ntau-1)
         self.norb = norb
-    #------------------------------------------------------------                
+    #-------------------------------------------------------- 
     def _compute_gregory_matrix(self, nmax, order):
         wstart,omega = volterra.weights(order)
 

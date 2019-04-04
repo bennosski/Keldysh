@@ -14,7 +14,8 @@ except ImportError:
     print('MPI not found')
     myrank = 0
     nprocs = 1
-    
+
+import src
 import pdb
 import numpy as np
 import time
@@ -27,8 +28,6 @@ import integration
 from matsubara import *
 from plotting import *
 
-savedir = sys.argv[1]
-
 if myrank==0:
     time0 = time.time()
     
@@ -36,10 +35,6 @@ if myrank==0:
     print(' ')
     print('nprocs = ',nprocs)
     
-mymkdir(savedir)
-mymkdir(savedir+'Gdir/')
-mymkdir(savedir+'G2x2dir/')
-
 Nkx = 1
 Nky = 1
 k2p, k2i, i2k = init_k2p_k2i_i2k(Nkx, Nky, nprocs, myrank)

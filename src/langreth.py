@@ -3,7 +3,6 @@ from scipy.linalg import expm
 from functions import *
 
 class langreth:
-
     def __init__(self, nt, tmax, M):
         '''
         M is the known Matsubara piece
@@ -163,108 +162,4 @@ def compute_D0R(DM, omega, nt, tmax):
     
     return D0
 #---------------------------------------------------
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    
-def multiply(a, b, Nt, Ntau, dt, dtau, Norbs):
-    '''
-    computes the langreth product of a and b and stores result in c
-    '''
-
-    aR, aA = initRA(a, Nt, Norbs)
-    bR, bA = initRA(b, Nt, Norbs)
-
-    aR  += np.diag(a.DR)
-    aA  += np.diag(a.DR)
-    a.M += np.diag(a.DM)
-
-    bR  += np.diag(b.DR)
-    bA  += np.diag(b.DR)
-    b.M += np.diag(b.DM)
-
-    c = langreth(Nt, Ntau, Norbs)
-
-    c.zero(Nt, Ntau, Norbs)
-    
-    c.M = -1j*dtau*np.dot(a.M, b.M)
-
-    mixed_product = -1j*dtau*np.dot(a.RI, b.IR)
-
-    c.G = dt*(np.dot(a.G, bA) + np.dot(aR, b.G)) + mixed_product
-    c.L = dt*(np.dot(a.L, bA) + np.dot(aR, b.L)) + mixed_product
-
-    c.RI = dt*np.dot(aR, b.RI) - 1j*dtau*np.dot(a.RI, b.M)
-    c.IR = dt*np.dot(a.IR, bA) - 1j*dtau*np.dot(a.M, b.IR)
-
-    return c
-    
-    
-#invert a * b = c to solve for b
-def solve(a, c, Nt, Ntau, dt, dtau, Norbs):
-
-    aR, aA = initRA(a, Nt, Norbs)
-    cR, cA = initRA(c, Nt, Norbs)
-
-    aR  += np.diag(a.DR)
-    aA  += np.diag(a.DR)
-    a.M += np.diag(a.DM)
-
-    cR  += np.diag(c.DR)
-    cA  += np.diag(c.DR)
-    c.M += np.diag(c.DM)
-    
-    b = langreth(Nt, Ntau, Norbs)
-
-    aMinv = np.linalg.inv(a.M)
-    aRinv = np.linalg.inv(aR)
-    aAinv = np.linalg.inv(aA)
-    
-    b.M = np.dot(aMinv, c.M) / (-1j*dtau)
-
-    bR = np.dot(aRinv, cR) / (dt)
-    bA = np.dot(aAinv, cA) / (dt)
-
-    b.RI = np.dot(aRinv, c.RI - np.dot(a.RI, b.M)*(-1j*dtau) ) / (dt)
-    b.IR = np.dot(aMinv, c.IR - np.dot(a.IR, bA)*(dt) ) / (-1j*dtau)
-
-    mixed_product = np.dot(a.RI, b.IR)*(-1j*dtau)
-
-    b.G  = np.dot(aRinv, c.G  - np.dot(a.G, bA)*(dt) - mixed_product ) / (dt)
-    b.L  = np.dot(aRinv, c.L  - np.dot(a.L, bA)*(dt) - mixed_product ) / (dt)
-    
-    return b
-
-
-
-
-
-
-    
-def initRA(L, Nt, Norbs):
-    # theta for band case
-    theta = init_block_theta(Nt, Norbs)
-    
-    R = np.zeros([Norbs*Nt, Norbs*Nt], dtype=complex)
-    A = np.zeros([Norbs*Nt, Norbs*Nt], dtype=complex)
-    
-    R =  theta * (L.G - L.L)
-    A = -np.transpose(theta) * (L.G - L.L)
-
-    return R, A
 

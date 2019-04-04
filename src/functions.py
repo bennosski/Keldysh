@@ -1,9 +1,10 @@
 import numpy as np
 
+#--------------------------------------------------------
 def block_diag(x, norb):
     #return np.reshape(np.einsum('xy,ab->xayb', x, np.diag(np.ones(norb))), [np.shape(x)[0]*norb, np.shape(y)[0]*norb])
     return np.einsum('xy,ab->xayb', x, np.diag(np.ones(norb)))
-
+#--------------------------------------------------------
 def setup_cuts(Nk):
     if False:
         # gamma X M gamma
@@ -28,8 +29,7 @@ def setup_cuts(Nk):
             cut_ikys.append(i)
 
     return cut_ikxs, cut_ikys
-
-# kpoint on the y axis
+#--------------------------------------------------------
 def H(kx, ky):
     # graphene
     ''' 
@@ -46,19 +46,7 @@ def H(kx, ky):
     x[0] = -0.1
     
     return x
-
-# k point on the y axis
-def band(kx, ky):
-    #return 2.8 * sqrt(1. + 4*cos(sqrt(3.)/2*kx)*cos(ky/2) + 4*cos(ky/2)**2)
-    #return 2.8 * np.sqrt(1. + 4*np.cos(3.0/2*kx)*np.cos(np.sqrt(3)*ky/2) + 4*np.cos(np.sqrt(3.)*ky/2)**2)
-    
-    #return 2.8 * np.sqrt(1. + 4*np.cos(3.0/2*ky)*np.cos(np.sqrt(3)*kx/2) + 4*np.cos(np.sqrt(3.)*kx/2)**2)
-
-    #return sorted(np.linalg.eigvals(Hk(kx,ky)), reverse=True)
-
-    # what about eigenvalue sorting? Does it matter
-    return np.linalg.eigvals(Hk(kx,ky))
-
+#--------------------------------------------------------
 def get_kx_ky(ik1, ik2, Nkx, Nky, ARPES=False):
     if not ARPES:
         ky = 4*np.pi/3*ik1/Nkx + 2*np.pi/3*ik2/Nky
@@ -76,7 +64,7 @@ def get_kx_ky(ik1, ik2, Nkx, Nky, ARPES=False):
         ky = 0.0
 
     return kx, ky
-
+#--------------------------------------------------------
 def compute_A(mytime, Nt, dt, pump):
     if pump==0:
         return 0.0, 0.0, 0.0
@@ -97,7 +85,7 @@ def compute_A(mytime, Nt, dt, pump):
         return A*cosA, A*sinA, fieldAngle
     
     return None
-
+#--------------------------------------------------------
 def init_k2p_k2i_i2k(Nkx, Nky, nprocs, myrank):
     k2p = np.zeros([Nkx, Nky], dtype=int)
     k2i = np.zeros([Nkx, Nky], dtype=int)
@@ -109,7 +97,7 @@ def init_k2p_k2i_i2k(Nkx, Nky, nprocs, myrank):
             if k2p[ik1,ik2]==myrank:
                 i2k.append([ik1,ik2])
     return k2p, k2i, i2k
-
+#--------------------------------------------------------
 def init_block_theta(Nt, Norbs):
     # could try using scipy.block_diag for this
     theta = np.zeros([Norbs*Nt, Norbs*Nt])
@@ -120,6 +108,3 @@ def init_block_theta(Nt, Norbs):
                 for j in range(i):
                     theta[a*Nt+i,b*Nt+j] = 1.0
     return theta
-
-
-

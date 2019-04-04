@@ -1,7 +1,7 @@
 from numpy import *
 from matplotlib.pyplot import *
 
-
+#-------------------------------------------------------- 
 def plt_diffs(diffs):
     figure()
     log_nts = log10(array(diffs['nts']))
@@ -15,7 +15,7 @@ def plt_diffs(diffs):
     xlabel('$\log(N_t)$', fontsize=12)
     ylabel('$\log(\mathrm{error})$', fontsize=12)
     show()
-
+#-------------------------------------------------------- 
 def plt(x, ys, name):
     figure()
     styles = ['-','--']
@@ -23,7 +23,7 @@ def plt(x, ys, name):
         plot(x, y, styles[i])
     title(name)
     show()
-
+#-------------------------------------------------------- 
 def im(ys, extent, name):
     f = figure()
     f.set_size_inches(5*len(ys), 6)
