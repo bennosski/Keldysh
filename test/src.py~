@@ -1,0 +1,12 @@
+import os
+cwd = os.getcwd()
+print('-----------------------------')
+print('current path : %s'%cwd)
+src_path = cwd+'/../src'
+print('adding path : %s\n'%src_path)
+import sys
+sys.path.insert(0, src_path)
+
+
+
+
