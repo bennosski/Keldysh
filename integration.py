@@ -93,7 +93,7 @@ class integrator:
 
         return np.reshape(Cmk, [ntau*norb, ntau*norb])
     #------------------------------------------------------------
-    def MxM(self, A, B, C):
+    def MxM(self, A, B):
         '''
         A = B*C
         '''
@@ -101,8 +101,10 @@ class integrator:
         norb = A.norb
 
         BM = np.reshape(B.M, [ntau*norb, norb])
-        C.M = self.prep_MxM(A) @ BM
-        C.M = np.reshape(C.M, [ntau,norb,norb])
+        out = self.prep_MxM(A) @ BM
+        return np.reshape(out, [ntau,norb,norb])
+        #C.M = self.prep_MxM(A) @ BM
+        #C.M = np.reshape(C.M, [ntau,norb,norb])
     #------------------------------------------------------------
     def dyson_matsubara(self, G0, Sigma, G):
         '''
@@ -115,8 +117,9 @@ class integrator:
         ntau = G0.ntau
         norb = G0.norb
 
-        self.MxM(G0, Sigma, G)
-
+        #self.MxM(G0, Sigma, G)
+        G.M = self.MxM(G0, Sigma)
+        
         X = np.diag(np.ones(ntau*norb)) - self.prep_MxM(G)
         G0M = np.reshape(G0.M, [ntau*norb, norb])
         G.M = np.linalg.solve(X, G0M)
@@ -212,17 +215,16 @@ class integrator:
         norb = A.norb
         dt   = A.dt
 
-        # something weird going on for large j
-        # probably need to more carefully handle the boundary
-        
-        wj = np.zeros((nt,nt))
-        wj[j:, j:] = self.gregory_matrix_R[:nt-j, :nt-j]
-
-        #gm = np.tril(np.ones((nt,nt))) - np.diag(0.5*np.ones(nt))
-        #wj = np.zeros((nt,nt))
-        #wj[j:, j:] = gm[:nt-j, :nt-j]
-        
+        if j<nt//2:
+            wj = np.zeros((nt,nt))
+            wj[j:, j:] = self.gregory_matrix_R[:nt-j, :nt-j]
+        else:
+            wj = np.zeros((nt,nt))
+            for n in range(j, nt):
+                wj[n,:n+1] = self.gregory_matrix_R[n-j, n::-1]
+                
         x = dt * np.einsum('nk,nakb->nakb', wj, A.R)
+        
         return np.reshape(x, [nt*norb, nt*norb])
     #------------------------------------------------------------
     def RxR(self, A, B):
@@ -230,13 +232,9 @@ class integrator:
         norb = A.norb
 
         out = np.zeros((nt, norb, nt, norb), dtype=np.complex128)
-
-        BR = np.reshape(B.R, [nt*norb, nt, norb])
-
+        tempR = np.reshape(B.R, [nt*norb, nt, norb])
         for j in range(nt):
-            out[:,:,j,:] = np.reshape(self.prep_RxR(A,j) @ BR[:,j,:], [nt,norb,norb])
-
-        #out = out - np.einsum('abcd->cdab', np.conj(out))
+            out[:,:,j,:] = np.reshape(self.prep_RxR(A,j) @ tempR[:,j,:], [nt,norb,norb])
 
         theta = np.tril(np.ones((nt,nt))) - np.diag(0.5*np.ones(nt))     
         out  = np.einsum('mn,manb->manb', theta, out)
@@ -252,8 +250,8 @@ class integrator:
         C.R = self.RxR(A, B)
 
         C.L = self.LxA(A, B) + self.RxL(A, B) + self.RIxIR(A, B)
-        self.MxM(A, B, C)
-        
+
+        C.M = self.MxM(A, B)
     #------------------------------------------------------------    
     def dyson_langreth(self, G0, Sigma, G):
 
@@ -269,19 +267,17 @@ class integrator:
         ntau = G0.ntau
         
         # solve RxR = R
-
-        # Careful! use extended R or regular R????
-        
-        G0R = np.reshape(G0.R, [nt*norb, nt, norb])
-        theta = np.tril(np.ones((nt,nt))) 
+        G0R = np.reshape(G0.R, [nt*norb, nt*norb])
+        G.R = np.zeros([nt*norb, nt*norb], dtype=np.complex128)
         for j in range(nt):
-            sol = np.linalg.solve(np.diag(np.ones(nt*norb)) - self.prep_RxR(A,j), theta[:,j,None]*G0R[:,j,:])
-            G.R[:,:,j,:] = np.reshape(sol, [nt,norb,norb])
-
-        theta = np.tril(np.ones((nt,nt))) - np.diag(0.5*np.ones(nt))     
-        G.R  = np.einsum('mn,manb->manb', theta, G.R)        
-        G.R -= np.einsum('abcd->cdab', np.conj(G.R))
-                    
+            lhs = np.diag(np.ones(nt*norb)) - self.prep_RxR(A,j)
+            n = j*norb
+            lhs, rhs = lhs[n:, n:], G0R[n:,n] - lhs[n:,:n] @ G.R[:n,n]            
+            G.R[n:,n] = np.linalg.solve(lhs, rhs)
+            G.R[n,n:] = -np.conj(G.R[n:,n]) 
+            
+        G.R = np.reshape(G.R, [nt,norb,nt,norb])
+        
         # solve A_M x B_IR = C_IR - A_IR x B_A
         # note minus sign on A because of I-A
         rhs = np.reshape(G0.IR + self.IRxA(A, G), [ntau*norb, nt*norb])
