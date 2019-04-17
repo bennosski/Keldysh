@@ -11,9 +11,15 @@ class matsubara:
 
         self.dtau = 1.0*self.beta/(self.ntau-1)
         self.M = np.zeros([ntau, norb, norb], dtype=np.complex128)
+        self.deltaM = np.zeros([norb, norb], dtype=np.complex128)
+    #---------------------------------------------------
+    def add(self, b):
+        self.M += b.M
+        self.deltaM += b.deltaM
     #---------------------------------------------------
     def scale(self, c):
         self.M *= c
+        self.deltaM *= c
     #---------------------------------------------------
     def mycopy(self, b):
         pass
@@ -35,7 +41,6 @@ def compute_G0M(ik1, ik2, UksR, UksI, eks, fks, Rs, myrank, Nkx, Nky, ARPES, kpp
             
         # R * e^((beta-tau)*ek) * [-f(ek)] * R^dagger
         G0.M = 1j*np.einsum('ab,mb,b,cb->mac', Rs[index], UksI[1,index], -fks[index], np.conj(Rs[index]))
-        #G0.M = np.reshape(G, [ntau*norb, norb])
         
     return G0
 #---------------------------------------------------
@@ -44,7 +49,6 @@ def compute_D0M(omega, beta, ntau, norb):
     D0 = matsubara(beta, ntau, norb, +1)
 
     nB   = 1./(np.exp(beta*omega)-1.0)
-    #theta = np.tril(np.ones([Ntau,Ntau]), -1) + np.diag(0.5*np.ones(Ntau)) 
     
     taus = np.linspace(0, beta, ntau)
 

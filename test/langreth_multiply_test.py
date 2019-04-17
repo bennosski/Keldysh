@@ -43,7 +43,7 @@ kpp = np.count_nonzero(k2p==myrank)
 
 def multiply_test():
 
-    beta = 2.0
+    beta = 10.0
     ARPES = False
     pump = 0
     g2 = None
@@ -54,14 +54,13 @@ def multiply_test():
     e2 =  0.1
     lamb = 1.0
 
-    ntau = 200
+    ntau = 800
     
     order = 6
     
-    #nts = [10, 20, 100, 400, 600]
-    #nts = [10, 50, 100, 500, 1000]
-    nts = [10, 50, 100]
-
+    nts = [10, 50, 100, 500]
+    
+    #nts = [10, 50, 100]
     #nts = [20]
     
     diffs = {}
@@ -69,7 +68,7 @@ def multiply_test():
 
     diffs['RxR'] = []
     diffs['MxIR'] = []
-    #diffs['MxM'] = []
+    diffs['MxM'] = []
     diffs['RIxIR'] = []
     diffs['IRxA'] = []
     diffs['LxA'] = []
@@ -89,8 +88,7 @@ def multiply_test():
         Sigma = compute_G0R(0, 0, SigmaM, UksR, UksI, eks, fks, Rs, *constants)
         Sigma.scale(lamb*np.conj(lamb))
 
-        # solve the embedding problem
-
+        
         norb = 1
         def H(kx, ky): return e1*np.ones([1,1])
         constants = (myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, tmax, nt, beta, ntau, norb, pump)
@@ -99,31 +97,27 @@ def multiply_test():
         G0  = compute_G0R(0, 0, G0M, UksR, UksI, eks, fks, Rs, *constants)
 
         integrator = integration.integrator(order, nt, beta, ntau, norb)
-
-        #im([integrator.gregory_matrix_R, np.tril(np.ones((nt,nt)))], [0,tmax,0,tmax], 'gregory matrix')
-        #exit()
-
         
         diff_mean = MxM_test(integrator, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau)
-        #diffs['MxM'].append(diff_mean)
+        diffs['MxM'].append(diff_mean)
 
         diff_mean = MxIR_test(integrator, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau)
         diffs['MxIR'].append(diff_mean)
         
         diff_mean = RxR_test(integrator, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau)
         diffs['RxR'].append(diff_mean)
-
-        exit()
         
         diff_mean = RIxIR_test(integrator, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau)
         diffs['RIxIR'].append(diff_mean)
+
         diff_mean = IRxA_test(integrator, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau)
         diffs['IRxA'].append(diff_mean)
+
         diff_mean = LxA_test(integrator, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau)
         diffs['LxA'].append(diff_mean)
+
         diff_mean = RxL_test(integrator, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau)
         diffs['RxL'].append(diff_mean)
-
         
     if len(nts)>1:
         #np.save(savedir+'diffs.npy', diffs)
@@ -285,9 +279,9 @@ def RxR_test(integrator, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau):
 
     y1 = P[:,0,:,0]
     y2 = Pexact
-    im([y1.real, y2.real, y1.real-y2.real], [0,tmax,0,tmax], 'P and Pexact')
+    #im([y1.real, y2.real, y1.real-y2.real], [0,tmax,0,tmax], 'P and Pexact')
 
-    im([y1.imag, y2.imag, y1.imag-y2.imag], [0,tmax,0,tmax], 'P and Pexact')
+    #im([y1.imag, y2.imag, y1.imag-y2.imag], [0,tmax,0,tmax], 'P and Pexact')
     
     print('shape P', np.shape(P))
     print('shape Pexact', np.shape(Pexact))

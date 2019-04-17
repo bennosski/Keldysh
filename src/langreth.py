@@ -25,50 +25,60 @@ class langreth:
         self.R  = np.zeros([nt, norb, nt, norb], dtype=np.complex128)
         self.IR = np.zeros([ntau, norb, nt, norb], dtype=np.complex128)
         self.M  = M.M
+        self.deltaR = np.zeros([nt, norb, norb], dtype=np.complex128)
+        self.deltaM = M.deltaM
     #---------------------------------------------------     
     def add(self, b):
         self.L  += b.L
         self.R  += b.R
         self.IR += b.IR
-        self.M  += b.M
+        self.deltaR += b.deltaR
+
+        # NOTE : langreth operations should never change the matsubara piece
+        #self.M  += b.M
+        #self.deltaM += b.deltaM
     #---------------------------------------------------
     def scale(self, c):
         self.L  *= c
         self.R  *= c
         self.IR *= c
-        self.M  *= c
-    #---------------------------------------------------     
-    def mycopy(self, b):
-        pass
-        #self.L  = b.L.copy()
-        #self.R  = b.R.copy()
-        #self.IR = b.IR.copy()
-        #self.M  = b.M.copy()
+        self.deltaR *= c
+
+        # NOTE : langreth operations should never change the matsubara piece
+        #self.M  *= c
+        #self.deltaM *= c
     #---------------------------------------------------     
     def zero(self):
         self.L  = np.zeros_like(self.L)
         self.R  = np.zeros_like(self.R)
         self.IR = np.zeros_like(self.IR)
         self.M  = np.zeros_like(self.M)
+        self.deltaR = np.zeros_like(self.deltaR)
+        self.deltaM = np.zeros_like(self.deltaM)
     #---------------------------------------------------     
     def mysave(self, myfile):
         np.save(myfile+'L', self.L)
         np.save(myfile+'R', self.R)
         np.save(myfile+'IR', self.IR)
         np.save(myfile+'M', self.M)
+        np.save(myfile+'deltaR', self.deltaR)
+        np.save(myfile+'deltaM', self.deltaM)
     #---------------------------------------------------
     def myload(self, myfile):
         self.L  = np.load(myfile+'L.npy')
         self.R  = np.load(myfile+'R.npy')
         self.IR = np.load(myfile+'IR.npy')
         self.M  = np.load(myfile+'M.npy')
+        self.deltaR = np.load(myfile+'deltaR.npy')
+        self.deltaM = np.load(myfile+'deltaM.npy')
     #---------------------------------------------------
     def __str__(self):
         return 'L  max %1.3e mean %1.3e'%(np.amax(np.abs(self.L)), np.mean(np.abs(self.L))) +'\n' \
               +'R  max %1.3e mean %1.3e'%(np.amax(np.abs(self.R)), np.mean(np.abs(self.R))) +'\n' \
               +'IR max %1.3e mean %1.3e'%(np.amax(np.abs(self.IR)),np.mean(np.abs(self.IR)))+'\n' \
-              +'M  max %1.3e mean %1.3e'%(np.amax(np.abs(self.M)), np.mean(np.abs(self.M)))
-    
+              +'M  max %1.3e mean %1.3e'%(np.amax(np.abs(self.M)), np.mean(np.abs(self.M))) +'\n' \
+              +'dR  max %1.3e mean %1.3e'%(np.amax(np.abs(self.deltaR)), np.mean(np.abs(self.deltaR)))+'\n' \
+              +'dM  max %1.3e mean %1.3e'%(np.amax(np.abs(self.deltaM)), np.mean(np.abs(self.deltaM)))
 #---------------------------------------------------
 def init_Uks(H, myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, tmax, nt, beta, ntau, norb, pump):
     '''

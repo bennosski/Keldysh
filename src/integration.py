@@ -100,11 +100,11 @@ class integrator:
         ntau = A.ntau
         norb = A.norb
 
+        delta = np.einsum('mab,bc->mac', A.M, B.deltaM)
+        
         BM = np.reshape(B.M, [ntau*norb, norb])
         out = self.prep_MxM(A) @ BM
-        return np.reshape(out, [ntau,norb,norb])
-        #C.M = self.prep_MxM(A) @ BM
-        #C.M = np.reshape(C.M, [ntau,norb,norb])
+        return np.reshape(out, [ntau,norb,norb]) + delta
     #------------------------------------------------------------
     def dyson_matsubara(self, G0, Sigma, G):
         '''
@@ -117,7 +117,6 @@ class integrator:
         ntau = G0.ntau
         norb = G0.norb
 
-        #self.MxM(G0, Sigma, G)
         G.M = self.MxM(G0, Sigma)
         
         X = np.diag(np.ones(ntau*norb)) - self.prep_MxM(G)
@@ -128,7 +127,8 @@ class integrator:
     def prep_MxIR(self, A):
         dtau = A.dtau
 
-        # only needs to be run once!!!!
+        # can we run preparation only once?
+        # (only prepare SigmaM once with the gregory weights)
         # idea : store in the langreth object if component in the langreth object is none otherwise compute the following
 
         return self.prep_MxM(A)
@@ -165,9 +165,9 @@ class integrator:
         nt   = B.nt
         norb = B.norb
         dt   = B.dt
-
+        
         #### CHECK!!!! DO I NEED TO TRANSPOSE ORBITAL INDICES TO GET BA?
-        BA = np.einsum('kajb->jbka', np.conj(B.R))
+        BA = np.einsum('kajb->jbka', np.conj(B.R))        
         x = dt * np.einsum('jk,kajb->kajb', self.gregory_matrix_R, BA)
         return np.reshape(x, [nt*norb, nt*norb])
     #------------------------------------------------------------
@@ -180,8 +180,10 @@ class integrator:
         norb = B.norb
         dt   = B.dt
 
+        delta = np.einsum('manb,nbc->manc', A.IR, B.deltaR)
+
         AIR = np.reshape(A.IR, [ntau*norb, nt*norb])
-        return np.reshape(AIR @ self.prep_rxA(B), [ntau,norb,nt,norb])
+        return np.reshape(AIR @ self.prep_rxA(B), [ntau,norb,nt,norb]) + delta
     #------------------------------------------------------------
     def LxA(self, A, B):
         '''
@@ -191,8 +193,10 @@ class integrator:
         norb = B.norb
         dt   = B.dt
 
+        delta = np.einsum('manb,nbc->manc', A.L, B.deltaR)
+        
         AL = np.reshape(A.L, [nt*norb, nt*norb])
-        return np.reshape(AL @ self.prep_rxA(B), [nt,norb,nt,norb])
+        return np.reshape(AL @ self.prep_rxA(B), [nt,norb,nt,norb]) + delta
     #------------------------------------------------------------
     def prep_Rxr(self, A):
         nt   = A.nt
@@ -207,8 +211,27 @@ class integrator:
         norb = A.norb
         dt   = A.dt
 
+        delta = np.einsum('manb,nbc->manc', A.R, B.deltaR)
+        
         BL = np.reshape(B.L, [nt*norb, nt*norb])
-        return np.reshape(self.prep_Rxr(A) @ BL, [nt,norb,nt,norb])
+        return np.reshape(self.prep_Rxr(A) @ BL, [nt,norb,nt,norb]) + delta
+
+    #------------------------------------------------------------
+    def Rxv(self, A, B):
+        '''
+        B is a vector of size [nt,norb,norb]
+        designed to represent the density as a function for time (diagonal of the Green's function)
+        this function is used to construct the Hartree selfenergy (integration of DR(t,t') n(t'))
+        '''
+        nt   = A.nt
+        norb = A.norb
+        dt   = A.dt
+
+        # any deltaC piece ????
+        
+        B = np.reshape(B, [nt*norb, norb])
+        return np.reshape(self.prep_Rxr(A) @ B, [nt,norb,norb]) 
+    
     #------------------------------------------------------------
     def prep_RxR(self, A, j):
         nt   = A.nt
@@ -231,10 +254,14 @@ class integrator:
         nt   = A.nt
         norb = A.norb
 
+        delta = np.einsum('manb,nbc->manc', A.R, B.deltaR)        
+        
         out = np.zeros((nt, norb, nt, norb), dtype=np.complex128)
         tempR = np.reshape(B.R, [nt*norb, nt, norb])
         for j in range(nt):
             out[:,:,j,:] = np.reshape(self.prep_RxR(A,j) @ tempR[:,j,:], [nt,norb,norb])
+
+        out += delta
 
         theta = np.tril(np.ones((nt,nt))) - np.diag(0.5*np.ones(nt))     
         out  = np.einsum('mn,manb->manb', theta, out)

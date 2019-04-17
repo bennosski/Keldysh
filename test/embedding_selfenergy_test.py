@@ -15,8 +15,7 @@ except ImportError:
     myrank = 0
     nprocs = 1
 
-import src
-    
+import src    
 import pdb
 import numpy as np
 import time
@@ -28,6 +27,7 @@ from functions import *
 import integration
 from matsubara import *
 from plotting import *
+import time
 
 if myrank==0:
     time0 = time.time()
@@ -41,24 +41,27 @@ Nky = 1
 k2p, k2i, i2k = init_k2p_k2i_i2k(Nkx, Nky, nprocs, myrank)
 kpp = np.count_nonzero(k2p==myrank)
 
+def im_plot(x, y):
+    y1 = x[:,0,:,0]
+    y2 = y[:,0,:,0]
+    im([y1.imag, y2.imag, y1.imag-y2.imag], [0,tmax,0,tmax], 'imag')
+    im([y1.real, y2.real, y1.real-y2.real], [0,tmax,0,tmax], 'real')
+
 def main():
     
-    beta = 2.0
+    beta = 10.0
     ARPES = False
     pump = 0
     g2 = None
     omega = None
-    tmax = 4.0
-
+    tmax = 10.0
     e1   = -0.1
     e2   =  0.1
     lamb = 1.0
-
     order = 6
-    
-    ntau = 200
-
-    nts = [10, 20, 100]
+    ntau = 800
+    #nts = [400,800,1000]
+    nts = [10, 50, 100, 500]
     
     diffs = {}
     diffs['nts'] = nts
@@ -68,16 +71,11 @@ def main():
     diffs['L']  = []
     
     for nt in nts:
-
-        # Solve Matsubara problem first
         
         #---------------------------------------------------------
-        # compute non-interacting G for the 2x2 problem (exact solution)
-
+        # compute non-interacting G for the 2x2 problem
         norb = 2
-        def H(kx, ky):
-            return np.array([[e1, lamb], [np.conj(lamb), e2]], dtype=complex)
-
+        def H(kx, ky): return np.array([[e1, lamb], [np.conj(lamb), e2]], dtype=complex)
         constants = (myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, tmax, nt, beta, ntau, norb, pump)
         UksR, UksI, eks, fks, Rs = init_Uks(H, *constants)
         G2x2M = compute_G0M(0, 0, UksR, UksI, eks, fks, Rs, *constants)
@@ -110,15 +108,13 @@ def main():
 
         GM = matsubara(beta, ntau, norb, -1)
         integrator.dyson_matsubara(G0M, SigmaM, GM)
+        
         G  = langreth(nt, tmax, GM)
         integrator.dyson_langreth(G0, Sigma, G)
         
-        def im_plot(x, y):
-            y1 = x[:,0,:,0]
-            y2 = y[:,0,:,0]
-            im([y1.imag, y2.imag, y1.imag-y2.imag], [0,tmax,0,tmax], 'imag')
-            im([y1.real, y2.real, y1.real-y2.real], [0,tmax,0,tmax], 'real')
-
+        #------------------------------------------------------
+        # compute differences
+        
         diff = np.mean(abs(GM.M[:,0,0]-G2x2M.M[:,0,0]))
         print('diff = %1.3e'%diff)
         diffs['M'].append(diff)
