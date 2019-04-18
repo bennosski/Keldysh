@@ -80,7 +80,34 @@ class langreth:
               +'dR  max %1.3e mean %1.3e'%(np.amax(np.abs(self.deltaR)), np.mean(np.abs(self.deltaR)))+'\n' \
               +'dM  max %1.3e mean %1.3e'%(np.amax(np.abs(self.deltaM)), np.mean(np.abs(self.deltaM)))
 #---------------------------------------------------
-def init_Uks(H, myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, tmax, nt, beta, ntau, norb, pump):
+def init_Ht(H, myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, tmax, nt, beta, ntau, norb, pump):
+    
+    # the Hamiltonian in general is a function of kx,ky,t,orbital
+    # H is a function which accepts a kx and ky value and returns an norb x norb Hamiltonian
+
+    Ht = np.zeros([kpp, nt, norb, norb], dtype=np.complex128)
+
+    dt = 1.0*tmax/(nt-1)
+    ts = np.arange(0, nt*dt-dt/2.0, dt)
+    assert len(ts)==nt
+    A  = np.zeros([2, nt])
+    for it in range(nt):
+        A[0,it], A[1,it], _ = compute_A(ts[it], nt, dt, pump)
+    
+    for ik1 in range(Nkx):
+        for ik2 in range(Nky):
+            if myrank==k2p[ik1,ik2]:                
+                index = k2i[ik1,ik2]
+
+                kx, ky = get_kx_ky(ik1, ik2, Nkx, Nky, ARPES)
+
+                for it in range(nt):
+                    #Ht[index,it] = H(kx-A[0,it], ky-A[1,it]) * np.cos(0.02*ts[it])
+                    Ht[index,it] = H(kx-A[0,it], ky-A[1,it])
+
+    return Ht
+#---------------------------------------------------
+def init_Uks(Ht, myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, tmax, nt, beta, ntau, norb, pump):
     '''
     for ARPES, use Nky = 1 
     '''
@@ -107,10 +134,13 @@ def init_Uks(H, myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, tmax, nt, beta, ntau, no
                 for it in range(1, nt):
                     tt = it*dt # - dt/2.0
                     Ax, Ay, _ = compute_A(tt, nt, dt, pump)
-                    prod = np.dot(expm(-1j*H(kx-Ax, ky-Ay)*dt), prod)
+                    #prod = np.dot(expm(-1j*Ht(kx-Ax, ky-Ay)*dt), prod)
+                    prod = np.dot(expm(-1j*Ht[index,it]*dt), prod)
                     UksR[index,it] = prod.copy()
 
-                eks[index], Rs[index] = np.linalg.eig(H(kx,ky))
+                #eks[index], Rs[index] = np.linalg.eig(Ht(kx,ky))
+                eks[index], Rs[index] = np.linalg.eig(Ht[index,0])
+                
                 fks[index] = 1.0/(np.exp(beta*eks)+1.0)
 
                 # better way since all H commute at t=0
@@ -132,15 +162,12 @@ def compute_G0R(ik1, ik2, GM, UksR, UksI, eks, fks, Rs, myrank, Nkx, Nky, ARPES,
     if myrank==k2p[ik1,ik2]:
         index = k2i[ik1,ik2]
             
-        G0.L  = 1j*np.einsum('mab,bc,c,dc,ned->mane', UksR[index], Rs[index], fks[index]-0.0, np.conj(Rs[index]), np.conj(UksR[index]))
-        #G0.L = np.reshape(G, [nt*norb, nt*norb])
+        G0.L = 1j*np.einsum('mab,bc,c,dc,ned->mane', UksR[index], Rs[index], fks[index]-0.0, np.conj(Rs[index]), np.conj(UksR[index]))
 
-        G  = 1j*np.einsum('mab,bc,c,dc,ned->mane', UksR[index], Rs[index], fks[index]-1.0, np.conj(Rs[index]), np.conj(UksR[index]))
-        #G = np.reshape(G, [nt*norb, nt*norb])
-        G0.R = G - G0.L
+        GG = 1j*np.einsum('mab,bc,c,dc,ned->mane', UksR[index], Rs[index], fks[index]-1.0, np.conj(Rs[index]), np.conj(UksR[index]))
+        G0.R = GG - G0.L
                 
         G0.IR  = 1j*np.einsum('ab,mb,b,cb,ndc->mand', Rs[index], UksI[1,index], -fks[index], np.conj(Rs[index]), np.conj(UksR[index]))
-        #G0.IR = np.reshape(G, [ntau*norb, nt*norb])
         
     return G0
 #---------------------------------------------------
