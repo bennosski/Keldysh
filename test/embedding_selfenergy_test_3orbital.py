@@ -55,6 +55,8 @@ def main():
     g2 = None
     omega = None
     tmax = 10.0
+    dt_fine = 0.01
+    
     e0   = -0.2
     e1   = -0.1
     e2   =  0.2
@@ -82,13 +84,13 @@ def main():
         #---------------------------------------------------------
         # compute non-interacting G for the 3x3 problem
         norb = 3
-        def H(kx, ky):
+        def H(kx, ky, t):
             return np.array([[e0, lamb1, lamb2],
                              [np.conj(lamb1), e1, 0],
                              [np.conj(lamb2), 0, e2]],
                              dtype=complex)
         constants = (myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, tmax, nt, beta, ntau, norb, pump)
-        UksR, UksI, eks, fks, Rs = init_Uks(H, *constants)
+        UksR, UksI, eks, fks, Rs, Ht = init_Uks(H, dt_fine, *constants)
         G3x3M = compute_G0M(0, 0, UksR, UksI, eks, fks, Rs, *constants)
         G3x3  = compute_G0R(0, 0, G3x3M, UksR, UksI, eks, fks, Rs, *constants)
         
@@ -99,17 +101,17 @@ def main():
         norb = 1
         SigmaM = matsubara(beta, ntau, norb, -1)     
                             
-        def H(kx, ky): return e1*np.ones([1,1])
+        def H(kx, ky, t): return e1*np.ones([1,1])
         constants = (myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, tmax, nt, beta, ntau, norb, pump)
-        UksR, UksI, eks, fks, Rs = init_Uks(H, *constants)
+        UksR, UksI, eks, fks, Rs, Ht = init_Uks(H, dt_fine, *constants)
         G11M = compute_G0M(0, 0, UksR, UksI, eks, fks, Rs, *constants)
         G11M.scale(lamb1*np.conj(lamb1))
         G11 = compute_G0R(0, 0, G11M, UksR, UksI, eks, fks, Rs, *constants)
         G11.scale(lamb1*np.conj(lamb1))
 
-        def H(kx, ky): return e2*np.ones([1,1])
+        def H(kx, ky, t): return e2*np.ones([1,1])
         constants = (myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, tmax, nt, beta, ntau, norb, pump)
-        UksR, UksI, eks, fks, Rs = init_Uks(H, *constants)
+        UksR, UksI, eks, fks, Rs, Ht = init_Uks(H, dt_fine, *constants)
         G22M = compute_G0M(0, 0, UksR, UksI, eks, fks, Rs, *constants)
         G22M.scale(lamb2*np.conj(lamb2))
         G22 = compute_G0R(0, 0, G22M, UksR, UksI, eks, fks, Rs, *constants)
@@ -124,15 +126,15 @@ def main():
 
         taus = np.linspace(0, beta, ntau)
         plt(taus, [SigmaM.M[:,0,0].real, SigmaM.M[:,0,0].imag], 'SM')
-        exit()
+        #exit()
         
         #------------------------------------------------------
         # solve the embedding problem
         
         norb = 1
-        def H(kx, ky): return e0*np.ones([1,1])
+        def H(kx, ky, t): return e0*np.ones([1,1])
         constants = (myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, tmax, nt, beta, ntau, norb, pump)
-        UksR, UksI, eks, fks, Rs = init_Uks(H, *constants)
+        UksR, UksI, eks, fks, Rs, Ht = init_Uks(H, dt_fine, *constants)
         G0M = compute_G0M(0, 0, UksR, UksI, eks, fks, Rs, *constants)
         G0  = compute_G0R(0, 0, G0M, UksR, UksI, eks, fks, Rs, *constants)
                 

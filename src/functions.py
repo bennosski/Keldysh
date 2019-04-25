@@ -1,6 +1,10 @@
 import numpy as np
 
 #--------------------------------------------------------
+def dist(a, b):
+    assert np.shape(a)==np.shape(b)
+    return np.mean(abs(a-b))
+#--------------------------------------------------------
 def block_diag(x, norb):
     #return np.reshape(np.einsum('xy,ab->xayb', x, np.diag(np.ones(norb))), [np.shape(x)[0]*norb, np.shape(y)[0]*norb])
     return np.einsum('xy,ab->xayb', x, np.diag(np.ones(norb)))
@@ -65,9 +69,9 @@ def get_kx_ky(ik1, ik2, Nkx, Nky, ARPES=False):
 
     return kx, ky
 #--------------------------------------------------------
-def compute_A(mytime, Nt, dt, pump):
+def compute_A(mytime, pump):
     if pump==0:
-        return 0.0, 0.0, 0.0
+        return 0.0, 0.0 #, 0.0
 
     if pump==11:
         Amax = 0.5
@@ -82,7 +86,7 @@ def compute_A(mytime, Nt, dt, pump):
         elif mytime>20.0 and mytime<22.0:
             A = -Amax*np.sin(np.pi/2.*(mytime-20.0))**2
 
-        return A*cosA, A*sinA, fieldAngle
+        return A*cosA, A*sinA #, fieldAngle
     
     return None
 #--------------------------------------------------------

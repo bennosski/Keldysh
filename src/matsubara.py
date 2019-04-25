@@ -11,7 +11,7 @@ class matsubara:
 
         self.dtau = 1.0*self.beta/(self.ntau-1)
         self.M = np.zeros([ntau, norb, norb], dtype=np.complex128)
-        self.deltaM = np.zeros([norb, norb], dtype=np.complex128)
+        self.deltaM = np.zeros([norb, norb], dtype=np.complex128)    
     #---------------------------------------------------
     def add(self, b):
         self.M += b.M
@@ -29,6 +29,20 @@ class matsubara:
     #---------------------------------------------------
     def myload(self, myfile):
         pass
+
+#---------------------------------------------------
+def compute_G00M(ik1, ik2, myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, tmax, nt, beta, ntau, norb, pump):
+    G0 = matsubara(beta, ntau, norb, -1)
+    
+    kx, ky = get_kx_ky(ik1, ik2, Nkx, Nky, ARPES)
+
+    if myrank==k2p[ik1,ik2]:
+        index = k2i[ik1,ik2]
+
+        f = np.diag(-0.5*np.ones(norb))
+        G0.M = 1j*np.einsum('ab,mab->mab', f, np.ones([ntau, norb, norb], dtype=np.complex128))
+        
+    return G0
         
 #---------------------------------------------------
 def compute_G0M(ik1, ik2, UksR, UksI, eks, fks, Rs, myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, tmax, nt, beta, ntau, norb, pump):

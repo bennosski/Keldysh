@@ -47,6 +47,7 @@ def main():
     g2 = None
     omega = None
     tmax = 10.0
+    dt_fine = 0.005
     
     order = 6
     ntau = 800
@@ -54,6 +55,7 @@ def main():
     #nts = [400,800,1000]
     #nts = [10, 50, 100, 500]
 
+    #nts = [50, 100, 500]
     #nts = [50, 100, 500]
     nts = [50, 100, 500]
     
@@ -64,13 +66,15 @@ def main():
     diffs['R']  = []
     diffs['L']  = []
 
+    # random H
     '''
     np.random.seed(1)
     norb = 3
     Hmat = np.random.randn(norb, norb)
     Hmat += np.conj(Hmat).T
     '''
-    
+
+    # example H
     norb = 3
     e0   = -0.2
     e1   = -0.1
@@ -82,25 +86,26 @@ def main():
                      [np.conj(lamb2), 0, e2]],
                      dtype=complex)
     
-
-    print('H : ')
+    print('\nH : ')
     print(Hmat)
     print('')
+
+    def f(t): return np.cos(0.01*t)
     
     for nt in nts:
         
         #---------------------------------------------------------
-        # compute non-interacting G for the 3x3 problem
+        # compute non-interacting G for the norb x norb problem
         norb = np.shape(Hmat)[0]
-        def H(kx, ky): return Hmat
+        def H(kx, ky, t): return Hmat * f(t)
             #return np.array([[e0, lamb1, lamb2],
             #                 [np.conj(lamb1), e1, 0],
             #                 [np.conj(lamb2), 0, e2]],
             #                 dtype=complex)
             
         constants = (myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, tmax, nt, beta, ntau, norb, pump)
-        Ht = init_Ht(H, *constants)
-        UksR, UksI, eks, fks, Rs = init_Uks(Ht, *constants)
+        UksR, UksI, eks, fks, Rs, Ht = init_Uks(H, dt_fine, *constants)
+        
         GexactM = compute_G0M(0, 0, UksR, UksI, eks, fks, Rs, *constants)
         Gexact  = compute_G0R(0, 0, GexactM, UksR, UksI, eks, fks, Rs, *constants)
         
@@ -110,10 +115,9 @@ def main():
 
         norb = np.shape(Hmat)[0]-1
         SigmaM = matsubara(beta, ntau, norb, -1)     
-        #def H(kx, ky): return Hmat[1:, 1:]
+        def H(kx, ky, t): return Hmat[1:, 1:] * f(t)
         constants = (myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, tmax, nt, beta, ntau, norb, pump)
-        #Ht = init_Ht(H, *constants)
-        UksR, UksI, eks, fks, Rs = init_Uks(Ht[:,:,1:,1:], *constants)
+        UksR, UksI, eks, fks, Rs, _ = init_Uks(H, dt_fine, *constants)
 
         SM = compute_G0M(0, 0, UksR, UksI, eks, fks, Rs, *constants)
         SM.M = np.einsum('i,mij,j->m', Ht[0,0,0,1:], SM.M, Ht[0,0,1:,0])[:,None,None]
@@ -143,10 +147,10 @@ def main():
         # solve the embedding problem
         
         norb = 1
-        def H(kx, ky): return Hmat[0,0]*np.ones([1,1])
+        def H(kx, ky, t): return Hmat[0,0]*np.ones([1,1]) * f(t)
         constants = (myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, tmax, nt, beta, ntau, norb, pump)
-        Ht = init_Ht(H, *constants)
-        UksR, UksI, eks, fks, Rs = init_Uks(Ht, *constants)
+        #Ht = init_Ht(H, *constants)
+        UksR, UksI, eks, fks, Rs, _ = init_Uks(H, dt_fine, *constants)
         G0M = compute_G0M(0, 0, UksR, UksI, eks, fks, Rs, *constants)
         G0  = compute_G0R(0, 0, G0M, UksR, UksI, eks, fks, Rs, *constants)
                 

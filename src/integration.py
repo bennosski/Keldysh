@@ -5,7 +5,7 @@ from matsubara import *
 from langreth import *
 
 class integrator:
-    def __init__(self, order, nt, beta, ntau, norb):
+    def __init__(self, order, nt, beta, ntau):
         self.gregory_matrix_M = self._compute_gregory_matrix(ntau, order)
         self.rcorr = self._compute_rcorr(order)
         self.gregory_matrix_R = self._compute_gregory_matrix(nt, order)
@@ -13,7 +13,6 @@ class integrator:
         self.nt = nt
         self.ntau = ntau
         self.dtau = 1.0*beta/(ntau-1)
-        self.norb = norb
     #-------------------------------------------------------- 
     def _compute_gregory_matrix(self, nmax, order):
         wstart,omega = volterra.weights(order)
@@ -211,10 +210,10 @@ class integrator:
         norb = A.norb
         dt   = A.dt
 
-        delta = np.einsum('manb,nbc->manc', A.R, B.deltaR)
+        #delta = np.einsum('manb,nbc->manc', A.R, B.deltaR)
         
         BL = np.reshape(B.L, [nt*norb, nt*norb])
-        return np.reshape(self.prep_Rxr(A) @ BL, [nt,norb,nt,norb]) + delta
+        return np.reshape(self.prep_Rxr(A) @ BL, [nt,norb,nt,norb]) #+ delta
 
     #------------------------------------------------------------
     def Rxv(self, A, B):
@@ -227,16 +226,17 @@ class integrator:
         norb = A.norb
         dt   = A.dt
 
-        # any deltaC piece ????
+        # any deltaC piece ???? I'm guessing no we only worry
+        # about the delta piece on B and B is already the delta piece here (a diagonal of the selfenergy)
         
         B = np.reshape(B, [nt*norb, norb])
         return np.reshape(self.prep_Rxr(A) @ B, [nt,norb,norb]) 
     
     #------------------------------------------------------------
-    def prep_RxR(self, A, j):
-        nt   = A.nt
-        norb = A.norb
-        dt   = A.dt
+    def prep_RxR(self, As, j):
+        nt   = As[0].nt
+        norb = As[0].norb
+        dt   = As[0].dt
 
         if j<nt//2:
             wj = np.zeros((nt,nt))
@@ -245,29 +245,35 @@ class integrator:
             wj = np.zeros((nt,nt))
             for n in range(j, nt):
                 wj[n,:n+1] = self.gregory_matrix_R[n-j, n::-1]
-                
-        x = dt * np.einsum('nk,nakb->nakb', wj, A.R)
-        
-        return np.reshape(x, [nt*norb, nt*norb])
+
+        xs = [dt * np.einsum('nk,nakb->nakb', wj, A.R) for A in As]
+        xs = [np.reshape(x, [nt*norb, nt*norb]) for x in xs]
+        return xs
     #------------------------------------------------------------
     def RxR(self, A, B):
         nt   = A.nt
         norb = A.norb
 
-        delta = np.einsum('manb,nbc->manc', A.R, B.deltaR)        
-        
+        delta = np.einsum('manb,nbc->manc', A.R, B.deltaR)                
         out = np.zeros((nt, norb, nt, norb), dtype=np.complex128)
-        tempR = np.reshape(B.R, [nt*norb, nt, norb])
+        '''
+        AR = np.reshape(A.R, [nt*norb, nt, norb])
+        BR = np.reshape(B.R, [nt*norb, nt, norb])
         for j in range(nt):
-            out[:,:,j,:] = np.reshape(self.prep_RxR(A,j) @ tempR[:,j,:], [nt,norb,norb])
-
-        out += delta
-
-        theta = np.tril(np.ones((nt,nt))) - np.diag(0.5*np.ones(nt))     
-        out  = np.einsum('mn,manb->manb', theta, out)
-        out -= np.einsum('abcd->cdab', np.conj(out))
+            ws = self.prep_RxR([A,B], j)
+            x =  np.reshape(ws[0] @ BR[:,j,:], [nt,norb,norb])[j:]
+            out[j:,:,j,:] = x
+            x =  np.reshape(ws[1] @ AR[:,j,:], [nt,norb,norb])[j:]
+            x = -np.einsum('mab->bma', x)
+            out[j,:,j:,:] = x
+        '''
         
-        return out
+        #out += delta
+        #theta = np.tril(np.ones((nt,nt))) - np.diag(0.5*np.ones(nt))
+        #out  = np.einsum('mn,manb->manb', theta, out)
+        #out -= np.einsum('abcd->cdab', np.conj(out))
+
+        return out + delta
     #------------------------------------------------------------    
     def multiply_langreth(self, A, B, C):
         C.zero()
@@ -288,6 +294,20 @@ class integrator:
         M = matsubara(G.beta, G.ntau, G.norb, G.sig)
         A = langreth(G.nt, G.tmax, M)
         self.multiply_langreth(G0, Sigma, A)
+
+        '''
+        print('Sigma')
+        for i,j in product(range(2), repeat=2):
+            plt(np.linspace(0, G.tmax, G.nt), [Sigma.deltaR[:,i,j].real, Sigma.deltaR[:,i,j].imag], 'Sigma deltaR %d %d'%(i,j))
+        '''
+
+        '''
+        print('A = G0 * Sigma')
+        for i,j in product(range(2), repeat=2):
+            im([A.R.real[:,i,:,j], A.R.imag[:,i,:,j]], [0, G.tmax, 0, G.tmax], 'G0 * Sigma R %d %d'%(i,j))
+
+        exit()
+        '''
         
         nt   = G0.nt
         norb = G0.norb
@@ -297,11 +317,12 @@ class integrator:
         G0R = np.reshape(G0.R, [nt*norb, nt*norb])
         G.R = np.zeros([nt*norb, nt*norb], dtype=np.complex128)
         for j in range(nt):
-            lhs = np.diag(np.ones(nt*norb)) - self.prep_RxR(A,j)
-            n = j*norb
-            lhs, rhs = lhs[n:, n:], G0R[n:,n] - lhs[n:,:n] @ G.R[:n,n]            
-            G.R[n:,n] = np.linalg.solve(lhs, rhs)
-            G.R[n,n:] = -np.conj(G.R[n:,n]) 
+            X = np.diag(np.ones(nt*norb)) - self.prep_RxR([A],j)[0]
+            for b in range(norb):
+                n = j*norb + b
+                lhs, rhs = X[n:, n:], G0R[n:,n] - X[n:,:n] @ G.R[:n,n]            
+                G.R[n:,n] = np.linalg.solve(lhs, rhs)
+                G.R[n,n:] = -np.conj(G.R[n:,n]) 
             
         G.R = np.reshape(G.R, [nt,norb,nt,norb])
         
