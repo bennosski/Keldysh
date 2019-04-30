@@ -69,7 +69,7 @@ def main():
     diffs['RxR']   = []
     diffs['MxIR']  = []
     diffs['MxM']   = []
-    diffs['MxM_new']   = []
+    #diffs['MxM_new']   = []
     diffs['RIxIR'] = []
     diffs['IRxA']  = []
     diffs['LxA']   = []
@@ -92,7 +92,7 @@ def main():
         UksR, UksI, eks, fks, Rs, _ = init_Uks(H, dt_fine, *constants, version='higher order')
         SigmaM = compute_G0M(0, 0, UksR, UksI, eks, fks, Rs, *constants)
         SigmaM.scale(lamb*np.conj(lamb))
-        Sigma = compute_G0R(0, 0, SigmaM, UksR, UksI, eks, fks, Rs, *constants)
+        Sigma = compute_G0R(0, 0, UksR, UksI, eks, fks, Rs, *constants)
         Sigma.scale(lamb*np.conj(lamb))
 
         
@@ -101,20 +101,29 @@ def main():
         constants = (myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, tmax, nt, beta, ntau, norb, pump)
         UksR, UksI, eks, fks, Rs, _ = init_Uks(H, dt_fine, *constants, version='higher order')
         G0M = compute_G0M(0, 0, UksR, UksI, eks, fks, Rs, *constants)
-        G0  = compute_G0R(0, 0, G0M, UksR, UksI, eks, fks, Rs, *constants)
+        G0  = compute_G0R(0, 0, UksR, UksI, eks, fks, Rs, *constants)
 
         integrator = integration.integrator(order, nt, beta, ntau)
         
-        diff_mean = MxM_test(integrator, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau)
+        for p in diffs:
+            if p=='nts': continue
+            print(p)
+            #print(getattr(p+'_test'))
+            diff_mean = eval(p+'_test(integrator, G0M, SigmaM, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau)')
+            diffs[p].append(diff_mean)
+
+        continue
+
+        diff_mean = MxM_test(integrator, G0M, SigmaM, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau)
         diffs['MxM'].append(diff_mean)
 
-        diff_mean = RIxM_test(integrator, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau)
+        diff_mean = RIxM_test(integrator, G0M, SigmaM, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau)
         diffs['RIxM'].append(diff_mean)
 
         #diff_mean = MxM_new_test(integrator, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau)
         #diffs['MxM_new'].append(diff_mean)
         
-        diff_mean = MxIR_test(integrator, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau)
+        diff_mean = MxIR_test(integrator, G0M, SigmaM, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau)
         diffs['MxIR'].append(diff_mean)
         
         diff_mean = RxR_test(integrator, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau)
@@ -152,7 +161,7 @@ def main():
         
         plt_diffs(diffs)
 
-def RxRI_test(integrator, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau):
+def RxRI_test(integrator, G0M, SigmaM, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau):
     P = integrator.RxRI(G0, Sigma)
     
     ts = linspace(0, tmax, nt)
@@ -176,8 +185,8 @@ def RxRI_test(integrator, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau):
         
     return diff_mean    
         
-def RIxM_test(integrator, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau):
-    P = integrator.RIxM(G0, Sigma)
+def RIxM_test(integrator, G0M, SigmaM, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau):
+    P = integrator.RIxM(G0, SigmaM)
     
     ts = linspace(0, tmax, nt)
     taus = linspace(0, beta, ntau)    
@@ -198,7 +207,7 @@ def RIxM_test(integrator, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau):
     return diff_mean    
 
         
-def RxL_test(integrator, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau):
+def RxL_test(integrator, G0M, SigmaM, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau):
     P = integrator.RxL(G0, Sigma)
     
     ts = linspace(0, tmax, nt)
@@ -220,7 +229,7 @@ def RxL_test(integrator, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau):
         
     return diff_mean    
 
-def LxA_test(integrator, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau):
+def LxA_test(integrator, G0M, SigmaM, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau):
     P = integrator.LxA(G0, Sigma)
     
     ts = linspace(0, tmax, nt)
@@ -243,7 +252,7 @@ def LxA_test(integrator, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau):
         
     return diff_mean    
                
-def IRxA_test(integrator, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau):
+def IRxA_test(integrator, G0M, SigmaM, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau):
     P = integrator.IRxA(G0, Sigma)
     
     ts = linspace(0, tmax, nt)
@@ -266,7 +275,7 @@ def IRxA_test(integrator, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau):
         
     return diff_mean    
         
-def RIxIR_test(integrator, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau):
+def RIxIR_test(integrator, G0M, SigmaM, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau):
     P = integrator.RIxIR(G0, Sigma)
     
     ts = linspace(0, tmax, nt)
@@ -289,9 +298,9 @@ def RIxIR_test(integrator, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau):
         
     return diff_mean    
             
-def MxM_test(integrator, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau):
+def MxM_test(integrator, G0M, SigmaM, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau):
     norb = 1
-    P = integrator.MxM(G0, Sigma)
+    P = integrator.MxM(G0M, SigmaM)
     
     taus = linspace(0, beta, ntau)
     
@@ -310,9 +319,9 @@ def MxM_test(integrator, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau):
         
     return diff_mean    
 
-def MxM_new_test(integrator, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau):
+def MxM_new_test(integrator, G0M, SigmaM, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau):
     norb = 1
-    P = integrator.MxM_new(G0, Sigma)
+    P = integrator.MxM_new(G0M, SigmaM)
     
     taus = linspace(0, beta, ntau)
     
@@ -332,11 +341,11 @@ def MxM_new_test(integrator, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau):
     return diff_mean    
 
 
-def MxM_test2(integrator, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau):
+def MxM_test2(integrator, G0M, SigmaM, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau):
     norb = 1
-    P1 = integrator.MxM(G0, Sigma)
+    P1 = integrator.MxM(G0M, SigmaM)
 
-    P2 = integrator.MxM2(G0, Sigma)
+    P2 = integrator.MxM2(G0M, SigmaM)
         
     diff_mean = dist(P1, P2)
     print('diff mean', diff_mean)
@@ -351,8 +360,8 @@ def MxM_test2(integrator, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau):
     return diff_mean    
 
 
-def MxIR_test(integrator, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau):
-    P = integrator.MxIR(G0, Sigma)
+def MxIR_test(integrator, G0M, SigmaM, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau):
+    P = integrator.MxIR(G0M, Sigma)
     
     ts = linspace(0, tmax, nt)
     taus = linspace(0, beta, ntau)    
@@ -375,7 +384,7 @@ def MxIR_test(integrator, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau):
         
     return diff_mean    
         
-def RxR_test(integrator, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau):
+def RxR_test(integrator, G0M, SigmaM, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau):
     P = integrator.RxR(G0, Sigma)
 
     ts = linspace(0, tmax, nt)
@@ -388,8 +397,6 @@ def RxR_test(integrator, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau):
 
     #im([y1.imag, y2.imag, y1.imag-y2.imag], [0,tmax,0,tmax], 'P and Pexact')
     
-    print('shape P', np.shape(P))
-    print('shape Pexact', np.shape(Pexact))
     print('diff max ', np.amax(abs(P[:,0,:,0]-Pexact[:,:])))
     diff_mean = np.mean(abs(P[:,0,:,0]-Pexact[:,:]))
     print('diff mean', diff_mean)

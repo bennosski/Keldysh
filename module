@@ -1,0 +1,5 @@
+#!/bin/bash
+
+echo "loading modules"
+module load py-h5py/2.8.0_py36
+module load py-scipystack/1.0_py36

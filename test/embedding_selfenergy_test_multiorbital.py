@@ -114,7 +114,7 @@ def main():
         UksR, UksI, eks, fks, Rs, Ht = init_Uks(H, dt_fine, *constants, version='higher order')
         
         GexactM = compute_G0M(0, 0, UksR, UksI, eks, fks, Rs, *constants)
-        Gexact  = compute_G0R(0, 0, GexactM, UksR, UksI, eks, fks, Rs, *constants)
+        Gexact  = compute_G0R(0, 0, UksR, UksI, eks, fks, Rs, *constants)
         
         #------------------------------------------------------
         # compute Sigma_embedding
@@ -133,7 +133,7 @@ def main():
         #plt(taus, [SM.M[:,0,0].real, SM.M[:,0,0].imag], 'SM')
         #exit()
         
-        S = compute_G0R(0, 0, SM, UksR, UksI, eks, fks, Rs, *constants)
+        S = compute_G0R(0, 0, UksR, UksI, eks, fks, Rs, *constants)
         S.R  = np.einsum('mhi,minj,njk->mhnk', Ht[0,:,:dim_embedding,dim_embedding:], S.R, Ht[0,:,dim_embedding:,:dim_embedding])
         S.L  = np.einsum('mhi,minj,njk->mhnk', Ht[0,:,:dim_embedding,dim_embedding:], S.L, Ht[0,:,dim_embedding:,:dim_embedding])
         S.RI = np.einsum('mhi,minj,jk->mhnk', Ht[0,:,:dim_embedding,dim_embedding:], S.RI, Ht[0,0,dim_embedding:,:dim_embedding])
@@ -143,7 +143,7 @@ def main():
             
         SigmaM = matsubara(beta, ntau, dim_embedding, -1)
         SigmaM.M = SM.M
-        Sigma = langreth(nt, tmax, SigmaM)
+        Sigma = langreth(norb, nt, tmax, ntau, beta, -1)
         Sigma.L = S.L
         Sigma.R = S.R
         Sigma.RI = S.RI
@@ -157,7 +157,7 @@ def main():
         #Ht = init_Ht(H, *constants)
         UksR, UksI, eks, fks, Rs, _ = init_Uks(H, dt_fine, *constants, version='higher order')
         G0M = compute_G0M(0, 0, UksR, UksI, eks, fks, Rs, *constants)
-        G0  = compute_G0R(0, 0, G0M, UksR, UksI, eks, fks, Rs, *constants)
+        G0  = compute_G0R(0, 0, UksR, UksI, eks, fks, Rs, *constants)
                 
         integrator = integration.integrator(6, nt, beta, ntau)
 
@@ -168,8 +168,8 @@ def main():
         diff = np.mean(abs(GM.M-GexactM.M[:,:dim_embedding,:dim_embedding]))
         print('diff = %1.3e'%diff)
                 
-        G  = langreth(nt, tmax, GM)
-        integrator.dyson_langreth(G0, Sigma, G)
+        G  = langreth(norb, nt, tmax, ntau, beta, -1)
+        integrator.dyson_langreth(G0M, SigmaM, GM, G0, Sigma, G)
         
         #------------------------------------------------------
         

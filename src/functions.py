@@ -7,7 +7,7 @@ def dist(a, b):
 #--------------------------------------------------------
 def differences(a, b):
     if type(a).__name__=='langreth':
-        print('M  %1.5e'%dist(a.M, b.M))
+        #print('M  %1.5e'%dist(a.M, b.M))
         print('R  %1.5e'%dist(a.R, b.R))
         print('RI %1.5e'%dist(a.RI, b.RI))
         print('L  %1.5e'%dist(a.L, b.L))        

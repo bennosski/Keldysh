@@ -5,18 +5,23 @@ from plotting import *
 from itertools import product
 
 class langreth:
-    def __init__(self, nt, tmax, M):
+    def __init__(self, norb, nt, tmax, ntau, beta, sig):
         '''
         M is the known Matsubara piece
         '''
         self.nt   = nt
         self.tmax = tmax
-        self.ntau = M.ntau
-        self.beta = M.beta
-        self.sig  = M.sig
-        self.norb  = M.norb
+        self.ntau = ntau
+        self.beta = beta
+        self.sig  = sig
+        self.norb = norb
+        #self.ntau = M.ntau
+        #self.beta = M.beta
+        #self.sig  = M.sig
+        #self.norb  = norb
         
-        self.dtau = M.dtau
+        #self.dtau = dtau
+        self.dtau = 1.0*beta/(ntau-1)
         self.dt   = 1.0*self.tmax/(self.nt-1)
 
         nt = self.nt
@@ -26,9 +31,9 @@ class langreth:
         self.L  = np.zeros([nt, norb, nt, norb], dtype=np.complex128)
         self.R  = np.zeros([nt, norb, nt, norb], dtype=np.complex128)
         self.RI = np.zeros([ntau, norb, nt, norb], dtype=np.complex128)
-        self.M  = M.M
+        #self.M  = M.M
         self.deltaR = np.zeros([nt, norb, norb], dtype=np.complex128)
-        self.deltaM = M.deltaM        
+        #self.deltaM = M.deltaM        
     #---------------------------------------------------     
     def add(self, b):
         self.L  += b.L
@@ -54,44 +59,51 @@ class langreth:
         self.L  = np.zeros_like(self.L)
         self.R  = np.zeros_like(self.R)
         self.RI = np.zeros_like(self.RI)
-        self.M  = np.zeros_like(self.M)
+        #self.M  = np.zeros_like(self.M)
         self.deltaR = np.zeros_like(self.deltaR)
-        self.deltaM = np.zeros_like(self.deltaM)
+        #self.deltaM = np.zeros_like(self.deltaM)
     #---------------------------------------------------     
     def save(self, folder, myfile):
         f = h5py.File(folder+myfile, 'w')
         params = f.create_dataset('/params', dtype='f')
         params.attrs['ntau'] = self.ntau
         params.attrs['norb'] = self.norb
+        params.attrs['dtau'] = self.dtau
+        params.attrs['beta'] = self.beta
+        params.attrs['tmax'] = self.tmax        
         params.attrs['nt']   = self.nt
+        params.attrs['dt']   = self.dt
+
         f.create_dataset('/L', data=self.L)
         f.create_dataset('/RI', data=self.RI)
         f.create_dataset('/R', data=self.R)
         f.create_dataset('/deltaR', data=self.deltaR)
-        f.create_dataset('/M', data=self.M)
-        f.create_dataset('/deltaM', data=self.deltaM)
+        #f.create_dataset('/M', data=self.M)
+        #f.create_dataset('/deltaM', data=self.deltaM)
         f.close()
     #---------------------------------------------------
     def load(self, folder, myfile):
         f = h5py.File(folder+myfile, 'r')
-        self.M      = f['/M'][...]
-        self.deltaM = f['/deltaM'][...]
+        #self.M      = f['/M'][...]a
+        #self.deltaM = f['/deltaM'][...]
         self.R      = f['/R'][...]
         self.deltaR = f['/deltaR'][...]
         self.RI     = f['/RI'][...]
         self.L      = f['/L'][...]
         self.ntau   = f['/params'].attrs['ntau']
         self.norb   = f['/params'].attrs['norb']
+        self.dtau   = f['/params'].attrs['dtau']
+        self.beta   = f['/params'].attrs['beta']
+        self.tmax   = f['/params'].attrs['tmax']
         self.nt     = f['/params'].attrs['nt']
+        self.dt     = f['/params'].attrs['dt']
         f.close()
     #---------------------------------------------------
     def __str__(self):
         return 'L  max %1.3e mean %1.3e'%(np.amax(np.abs(self.L)), np.mean(np.abs(self.L))) +'\n' \
               +'R  max %1.3e mean %1.3e'%(np.amax(np.abs(self.R)), np.mean(np.abs(self.R))) +'\n' \
               +'RI max %1.3e mean %1.3e'%(np.amax(np.abs(self.RI)),np.mean(np.abs(self.RI)))+'\n' \
-              +'M  max %1.3e mean %1.3e'%(np.amax(np.abs(self.M)), np.mean(np.abs(self.M))) +'\n' \
-              +'dR  max %1.3e mean %1.3e'%(np.amax(np.abs(self.deltaR)), np.mean(np.abs(self.deltaR)))+'\n' \
-              +'dM  max %1.3e mean %1.3e'%(np.amax(np.abs(self.deltaM)), np.mean(np.abs(self.deltaM)))
+              +'dR  max %1.3e mean %1.3e'%(np.amax(np.abs(self.deltaR)), np.mean(np.abs(self.deltaR)))
 #---------------------------------------------------
 def compute_U(H, kx, ky, t0, dt, pump, dt_fine, norb):
     # should give 4th order convergence
@@ -190,9 +202,9 @@ def init_Uks(H, dt_fine, myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, tmax, nt, beta,
 
     return UksR, UksI, eks, fks, Rs, Ht
 #---------------------------------------------------
-def compute_G00R(ik1, ik2, GM, myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, tmax, nt, beta, ntau, norb, pump):
+def compute_G00R(ik1, ik2, myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, tmax, nt, beta, ntau, norb, pump):
     
-    G0 = langreth(nt, tmax, GM)
+    G0 = langreth(norb, nt, tmax, ntau, beta, -1)
     
     kx, ky = get_kx_ky(ik1, ik2, Nkx, Nky, ARPES)
 
@@ -213,10 +225,10 @@ def compute_G00R(ik1, ik2, GM, myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, tmax, nt,
 
     return G0
 #---------------------------------------------------
-def compute_G0R(ik1, ik2, GM, UksR, UksI, eks, fks, Rs, myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, tmax, nt, beta, ntau, norb, pump):
-    
-    G0 = langreth(nt, tmax, GM)
-    
+def compute_G0R(ik1, ik2, UksR, UksI, eks, fks, Rs, myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, tmax, nt, beta, ntau, norb, pump):
+
+    G0 = langreth(norb, nt, tmax, ntau, beta, -1)
+        
     kx, ky = get_kx_ky(ik1, ik2, Nkx, Nky, ARPES)
 
     if myrank==k2p[ik1,ik2]:
@@ -235,14 +247,14 @@ def compute_G0R(ik1, ik2, GM, UksR, UksI, eks, fks, Rs, myrank, Nkx, Nky, ARPES,
         
     return G0
 #---------------------------------------------------
-def compute_D0R(DM, omega, nt, tmax):
+def compute_D0R(omega, nt, tmax, ntau, beta, sig):
 
-    D0 = langreth(nt, tmax, DM)
+    D0 = langreth(norb, nt, tmax, ntau, beta, sig)
 
-    beta = D0.beta
-    tmax = D0.tmax
-    norb = D0.norb
-    ntau = D0.ntau
+    #beta = D0.beta
+    #tmax = D0.tmax
+    #norb = D0.norb
+    #ntau = D0.ntau
     
     nB = 1./(np.exp(beta*omega)-1.0)
     

@@ -149,7 +149,7 @@ class integrator:
     #------------------------------------------------------------
     def RIxM(self, A, B):
         ntau = A.ntau
-        nt   = B.nt
+        nt   = A.nt
         norb = A.norb
 
         delta = np.einsum('manb,bc->manc', A.RI, B.deltaM)
@@ -355,15 +355,15 @@ class integrator:
 
         C.M = self.MxM(A, B)
     #------------------------------------------------------------    
-    def dyson_langreth(self, G0, Sigma, G):
+    def dyson_langreth(self, G0M, SigmaM, GM, G0, Sigma, G):
 
         # IS G0*Sigma still fermionic? A.sig=-1?
         # yes I think so because it worked for Matsubara...
         
-        M = matsubara(G.beta, G.ntau, G.norb, G.sig)
-        A = langreth(G.nt, G.tmax, M)
+        M = matsubara(GM.beta, GM.ntau, GM.norb, GM.sig)
+        A = langreth(G.norb, G.nt, G.tmax, G.ntau, G.beta, G.sig)
 
-        A.RI = self.RxRI(G0, Sigma) + self.RIxM(G0, Sigma)
+        A.RI = self.RxRI(G0, Sigma) + self.RIxM(G0, SigmaM)
         
         A.R = self.RxR(G0, Sigma)
 
@@ -396,7 +396,7 @@ class integrator:
 
         # solve A_R x B_RI = C_RI - A_RI x B_M
         # note minus sign on A because of I-A
-        rhs = np.reshape(G0.RI + self.RIxM(A, G), [nt*norb, ntau*norb])
+        rhs = np.reshape(G0.RI + self.RIxM(A, GM), [nt*norb, ntau*norb])
         sol = np.linalg.solve(np.diag(np.ones(nt*norb)) - self.prep_Rxr(A), rhs)
         G.RI = np.reshape(sol, [nt,norb,ntau,norb])
         
