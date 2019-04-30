@@ -91,7 +91,7 @@ def main():
         
         G = matsubara(beta, ntau, norb, -1)
 
-        integrator = integration.integrator(5, nt, beta, ntau, norb)
+        integrator = integration.integrator(6, nt, beta, ntau, norb)
 
         integrator.dyson_matsubara(G0, Sigma, G)
 

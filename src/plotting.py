@@ -15,6 +15,7 @@ def plt_diffs(diffs):
     xlabel('$\log(N_t)$', fontsize=12)
     ylabel('$\log(\mathrm{error})$', fontsize=12)
     show()
+    savefig('result.png')
 #-------------------------------------------------------- 
 def plt(x, ys, name):
     figure()

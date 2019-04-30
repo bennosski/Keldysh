@@ -188,15 +188,9 @@ def RIxM_test(integrator, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau):
     #Pexact = -fe1*np.exp(-1j*e1*ts[:,None])*np.exp(1j*e2*ts[None,:])/(1j*(e1-e2)) * (np.exp(1j*(e1-e2)*ts[None,:]) - 1.0)
     Pexact = 1j*fe1*fe2*np.exp(-1j*e1*ts[:,None])*np.exp(e2*taus[None,:])/(e1-e2)*(np.exp(taus[None,:]*(e1-e2))-1.0) + 1j*fe1*(fe2-1.0)*np.exp(-1j*e1*ts[:,None])*np.exp(e2*taus[None,:])/(e1-e2)*(np.exp(beta*(e1-e2))-np.exp(taus[None,:]*(e1-e2))) 
     Pexact *= lamb*np.conj(lamb)
-
-    Pexact = -1.0*Pexact
     
     y1 = P[:,0,:,0]
     y2 = Pexact[:,:]
-    #im([y1.real, y2.real, y1.real-y2.real], [0,beta,0,tmax], 'P and Pexactfor RIxM')
-
-    #im([y1.imag, y2.imag, y1.imag-y2.imag], [0,beta,0,tmax], 'P and Pexactfor RIxM')
-
     
     diff_mean = np.mean(abs(P[:,0,:,0]-Pexact[:,:]))
     print('diff mean', diff_mean)
