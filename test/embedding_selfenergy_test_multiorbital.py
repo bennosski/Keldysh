@@ -29,17 +29,17 @@ from matsubara import *
 from plotting import *
 import time
 
-if myrank==0:
-    time0 = time.time()    
-    print(' ')
-    print('nprocs = ',nprocs)
-    
-Nkx = 1
-Nky = 1
-k2p, k2i, i2k = init_k2p_k2i_i2k(Nkx, Nky, nprocs, myrank)
-kpp = np.count_nonzero(k2p==myrank)
-
 def main():
+
+    if myrank==0:
+        time0 = time.time()    
+        print(' ')
+        print('nprocs = ',nprocs)
+    
+    Nkx = 1 
+    Nky = 1
+    k2p, k2i, i2k = init_k2p_k2i_i2k(Nkx, Nky, nprocs, myrank)
+    kpp = np.count_nonzero(k2p==myrank)
     
     beta = 2.0
     ARPES = False
@@ -47,7 +47,6 @@ def main():
     g2 = None
     omega = None
     tmax = 5.0
-    #dt_fine = 0.1*tmax/(nt-1)
 
     dim_embedding = 2
     

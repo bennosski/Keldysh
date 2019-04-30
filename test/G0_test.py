@@ -30,17 +30,17 @@ from plotting import *
 import time
 from itertools import product
 
-if myrank==0:
-    time0 = time.time()    
-    print(' ')
-    print('nprocs = ',nprocs)
-    
-Nkx = 1
-Nky = 1
-k2p, k2i, i2k = init_k2p_k2i_i2k(Nkx, Nky, nprocs, myrank)
-kpp = np.count_nonzero(k2p==myrank)
-
 def main():
+
+    if myrank==0:
+        time0 = time.time()    
+        print(' ')
+        print('nprocs = ',nprocs)
+    
+    Nkx = 1
+    Nky = 1
+    k2p, k2i, i2k = init_k2p_k2i_i2k(Nkx, Nky, nprocs, myrank)
+    kpp = np.count_nonzero(k2p==myrank)
     
     beta = 10.0
     ARPES = False
@@ -203,8 +203,6 @@ def main():
 
         print('differences between Gdyson and Gexact')
         differences(Gdyson, Gexact)
-
-        exit()
         
         '''
         for (i,j) in product(range(norb), repeat=2):
@@ -221,6 +219,7 @@ def main():
     
 if __name__=='__main__':
     main()
+    print('\nPASSED TEST')
         
 
 

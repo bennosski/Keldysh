@@ -29,19 +29,19 @@ import integration
 from matsubara import *
 from plotting import *
 
-if myrank==0:
-    time0 = time.time()
-    
-if myrank==0:
-    print(' ')
-    print('nprocs = ',nprocs)
-    
-Nkx = 1
-Nky = 1
-k2p, k2i, i2k = init_k2p_k2i_i2k(Nkx, Nky, nprocs, myrank)
-kpp = np.count_nonzero(k2p==myrank)
+def main():
 
-def multiply_test():
+    if myrank==0:
+        time0 = time.time()
+    
+    if myrank==0:
+        print(' ')
+        print('nprocs = ',nprocs)
+    
+    Nkx = 1
+    Nky = 1
+    k2p, k2i, i2k = init_k2p_k2i_i2k(Nkx, Nky, nprocs, myrank)
+    kpp = np.count_nonzero(k2p==myrank)
 
     beta = 10.0
     ARPES = False
@@ -396,9 +396,8 @@ def RxR_test(integrator, G0, Sigma, e1, e2, lamb, tmax, nt, beta, ntau):
         
     return diff_mean
     
-    
 if __name__=='__main__':
-    multiply_test()
+    main()
         
 
 

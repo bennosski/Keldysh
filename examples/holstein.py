@@ -28,54 +28,38 @@ import integration
 from matsubara import *
 from plotting import *
 
-if myrank==0:
-    time0 = time.time()
-    
-if myrank==0:
-    print(' ')
-    print('nprocs = ',nprocs)
-    
-Nkx = 1
-Nky = 1
-k2p, k2i, i2k = init_k2p_k2i_i2k(Nkx, Nky, nprocs, myrank)
-kpp = np.count_nonzero(k2p==myrank)
-
 def main():
+
+    if myrank==0:
+        time0 = time.time()
     
-    beta = 2.0
+    if myrank==0:
+        print(' ')
+        print('nprocs = ',nprocs)
+    
+    Nkx = 100
+    Nky = 1
+    beta  = 10.0    
+    ntau = 600
     ARPES = False
-    pump = 0
-    g2 = None
-    omega = None
-    tmax = 4.0
-
-    e1   = -0.1
-    e2   =  0.1
-    lamb = 1.0
-
+    pump  = 0
+    g2    = 0.1
+    omega = 0.5
+    tmax  = 4.0
+    nt    = 100
     order = 6
-    
-    ntau = 200
 
-    nts = [10, 20, 100]
-    
-    diffs = {}
-    diffs['nts'] = nts
-    diffs['M']  = []
-    diffs['IR'] = []
-    diffs['R']  = []
-    diffs['L']  = []
-    
-    for nt in nts:
+    k2p, k2i, i2k = init_k2p_k2i_i2k(Nkx, Nky, nprocs, myrank)
+    kpp = np.count_nonzero(k2p==myrank)
 
-        # Solve Matsubara problem first
-        
-        #---------------------------------------------------------
-        # compute non-interacting G for the 2x2 problem (exact solution)
+    
 
-        norb = 2
-        def H(kx, ky):
-            return np.array([[e1, lamb], [np.conj(lamb), e2]], dtype=complex)
+    # Solve Matsubara problem first    
+    #---------------------------------------------------------
+
+    norb = 2
+    def H(kx, ky):
+        return np.array([[e1, lamb], [np.conj(lamb), e2]], dtype=complex)
 
         constants = (myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, tmax, nt, beta, ntau, norb, pump)
         UksR, UksI, eks, fks, Rs = init_Uks(H, *constants)
