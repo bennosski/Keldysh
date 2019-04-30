@@ -8,7 +8,7 @@ def plt_diffs(diffs):
     ls = []
     labels = []
     for p in diffs:
-        if p!='nts':
+        if p!='nts' and len(diffs[p])==len(diffs['nts']):
             labels.append(p)
             ls.append(plot(log_nts, log10(array(diffs[p])), '.-')[0])
     legend(ls, labels)
@@ -20,7 +20,7 @@ def plt(x, ys, name):
     figure()
     styles = ['-','--']
     for i,y in enumerate(ys):
-        plot(x, y, styles[i])
+        plot(x, y, styles[i%len(styles)])
     title(name)
     show()
 #-------------------------------------------------------- 

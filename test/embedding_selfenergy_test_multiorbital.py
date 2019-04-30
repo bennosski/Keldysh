@@ -41,40 +41,44 @@ kpp = np.count_nonzero(k2p==myrank)
 
 def main():
     
-    beta = 10.0
+    beta = 2.0
     ARPES = False
     pump = 0
     g2 = None
     omega = None
-    tmax = 10.0
-    dt_fine = 0.005
+    tmax = 5.0
+    #dt_fine = 0.1*tmax/(nt-1)
+
+    dim_embedding = 2
     
     order = 6
-    ntau = 800
+    ntau = 200
     
     #nts = [400,800,1000]
     #nts = [10, 50, 100, 500]
 
     #nts = [50, 100, 500]
     #nts = [50, 100, 500]
-    nts = [50, 100, 500]
+    nts = [10, 50, 100, 500]
     
     diffs = {}
     diffs['nts'] = nts
     diffs['M']  = []
-    diffs['IR'] = []
+    diffs['RI'] = []
     diffs['R']  = []
     diffs['L']  = []
 
     # random H
-    '''
     np.random.seed(1)
-    norb = 3
-    Hmat = np.random.randn(norb, norb)
+    norb = 4
+    Hmat = 0.1*np.random.randn(norb, norb) + 0.1*1j*np.random.randn(norb, norb)
     Hmat += np.conj(Hmat).T
-    '''
+    Tmat = 0.1*np.random.randn(norb, norb) + 0.1*1j*np.random.randn(norb, norb)
+    Tmat += np.conj(Tmat).T
+    
 
     # example H
+    '''
     norb = 3
     e0   = -0.2
     e1   = -0.1
@@ -85,26 +89,30 @@ def main():
                      [np.conj(lamb1), e1, 0],
                      [np.conj(lamb2), 0, e2]],
                      dtype=complex)
+    '''
     
     print('\nH : ')
     print(Hmat)
     print('')
-
-    def f(t): return np.cos(0.01*t)
+    
+    #def f(t): return np.cos(0.01*t)
+    def f(t): return 1.0
     
     for nt in nts:
+
+        dt_fine = 0.1*tmax/(nt-1)
         
         #---------------------------------------------------------
         # compute non-interacting G for the norb x norb problem
         norb = np.shape(Hmat)[0]
-        def H(kx, ky, t): return Hmat * f(t)
+        def H(kx, ky, t): return Hmat + Tmat * np.cos(0.2*t)
             #return np.array([[e0, lamb1, lamb2],
             #                 [np.conj(lamb1), e1, 0],
             #                 [np.conj(lamb2), 0, e2]],
             #                 dtype=complex)
             
         constants = (myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, tmax, nt, beta, ntau, norb, pump)
-        UksR, UksI, eks, fks, Rs, Ht = init_Uks(H, dt_fine, *constants)
+        UksR, UksI, eks, fks, Rs, Ht = init_Uks(H, dt_fine, *constants, version='higher order')
         
         GexactM = compute_G0M(0, 0, UksR, UksI, eks, fks, Rs, *constants)
         Gexact  = compute_G0R(0, 0, GexactM, UksR, UksI, eks, fks, Rs, *constants)
@@ -113,74 +121,76 @@ def main():
         # compute Sigma_embedding
         # Sigma = sum_{i,j} H0i(t) Gij(t,t') Hj0(t')
 
-        norb = np.shape(Hmat)[0]-1
+        norb = np.shape(Hmat)[0]-dim_embedding
         SigmaM = matsubara(beta, ntau, norb, -1)     
-        def H(kx, ky, t): return Hmat[1:, 1:] * f(t)
+        def H(kx, ky, t): return Hmat[dim_embedding:, dim_embedding:] + Tmat[dim_embedding:, dim_embedding:] * np.cos(0.2*t)
         constants = (myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, tmax, nt, beta, ntau, norb, pump)
-        UksR, UksI, eks, fks, Rs, _ = init_Uks(H, dt_fine, *constants)
+        UksR, UksI, eks, fks, Rs, _ = init_Uks(H, dt_fine, *constants, version='higher order')
 
         SM = compute_G0M(0, 0, UksR, UksI, eks, fks, Rs, *constants)
-        SM.M = np.einsum('i,mij,j->m', Ht[0,0,0,1:], SM.M, Ht[0,0,1:,0])[:,None,None]
+        SM.M = np.einsum('hi,mij,jk->mhk', Ht[0,0,:dim_embedding,dim_embedding:], SM.M, Ht[0,0,dim_embedding:,:dim_embedding])
 
-        taus = np.linspace(0, beta, ntau)
-        plt(taus, [SM.M[:,0,0].real, SM.M[:,0,0].imag], 'SM')
+        #taus = np.linspace(0, beta, ntau)
+        #plt(taus, [SM.M[:,0,0].real, SM.M[:,0,0].imag], 'SM')
         #exit()
         
         S = compute_G0R(0, 0, SM, UksR, UksI, eks, fks, Rs, *constants)
-        S.R  = np.einsum('mi,minj,nj->mn', Ht[0,:,0,1:], S.R, Ht[0,:,1:,0])[:,None,:,None]
-        S.L  = np.einsum('mi,minj,nj->mn', Ht[0,:,0,1:], S.L, Ht[0,:,1:,0])[:,None,:,None]
-        S.IR = np.einsum('i,minj,nj->mn', Ht[0,0,0,1:], S.IR, Ht[0,:,1:,0])[:,None,:,None]
-
-        dt = 1.0*tmax/(nt-1)
-        ts = np.arange(0, nt*dt-dt/2.0, dt)
-        assert len(ts)==nt
-        plt(ts, [S.R[:,0,0,0].real, S.R[:,0,0,0].imag], 'SR')
+        S.R  = np.einsum('mhi,minj,njk->mhnk', Ht[0,:,:dim_embedding,dim_embedding:], S.R, Ht[0,:,dim_embedding:,:dim_embedding])
+        S.L  = np.einsum('mhi,minj,njk->mhnk', Ht[0,:,:dim_embedding,dim_embedding:], S.L, Ht[0,:,dim_embedding:,:dim_embedding])
+        S.RI = np.einsum('mhi,minj,jk->mhnk', Ht[0,:,:dim_embedding,dim_embedding:], S.RI, Ht[0,0,dim_embedding:,:dim_embedding])
+        
+        #dt = 1.0*tmax/(nt-1)
+        #ts = np.linspace(0, tmax, nt)
             
-        SigmaM = matsubara(beta, ntau, 1, -1)
+        SigmaM = matsubara(beta, ntau, dim_embedding, -1)
         SigmaM.M = SM.M
         Sigma = langreth(nt, tmax, SigmaM)
         Sigma.L = S.L
         Sigma.R = S.R
-        Sigma.IR = S.IR
+        Sigma.RI = S.RI
         
         #------------------------------------------------------
         # solve the embedding problem
         
-        norb = 1
-        def H(kx, ky, t): return Hmat[0,0]*np.ones([1,1]) * f(t)
+        norb = dim_embedding
+        def H(kx, ky, t): return Hmat[:dim_embedding,:dim_embedding] + Tmat[:dim_embedding, :dim_embedding] * np.cos(0.2*t)
         constants = (myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, tmax, nt, beta, ntau, norb, pump)
         #Ht = init_Ht(H, *constants)
-        UksR, UksI, eks, fks, Rs, _ = init_Uks(H, dt_fine, *constants)
+        UksR, UksI, eks, fks, Rs, _ = init_Uks(H, dt_fine, *constants, version='higher order')
         G0M = compute_G0M(0, 0, UksR, UksI, eks, fks, Rs, *constants)
         G0  = compute_G0R(0, 0, G0M, UksR, UksI, eks, fks, Rs, *constants)
                 
-        integrator = integration.integrator(6, nt, beta, ntau, norb)
+        integrator = integration.integrator(6, nt, beta, ntau)
 
         GM = matsubara(beta, ntau, norb, -1)
         integrator.dyson_matsubara(G0M, SigmaM, GM)
-        
+
+        print('differences Matsubara')
+        diff = np.mean(abs(GM.M-GexactM.M[:,:dim_embedding,:dim_embedding]))
+        print('diff = %1.3e'%diff)
+                
         G  = langreth(nt, tmax, GM)
         integrator.dyson_langreth(G0, Sigma, G)
         
         #------------------------------------------------------
         
         # compute differences        
-        diff = np.mean(abs(GM.M[:,0,0]-GexactM.M[:,0,0]))
+        diff = np.mean(abs(GM.M-GexactM.M[:,:dim_embedding,:dim_embedding]))
         print('diff = %1.3e'%diff)
         diffs['M'].append(diff)
         
-        diff = np.mean(abs(G.R[:,0,:,0]-Gexact.R[:,0,:,0]))
+        diff = np.mean(abs(G.R-Gexact.R[:,:dim_embedding,:,:dim_embedding]))
         print('diff langreth R = %1.3e'%diff)
         diffs['R'].append(diff)
-                
-        diff = np.mean(abs(G.IR[:,0,:,0]-Gexact.IR[:,0,:,0]))
-        print('diff langreth IR = %1.3e'%diff)
-        diffs['IR'].append(diff)
 
-        diff = np.mean(abs(G.L[:,0,:,0]-Gexact.L[:,0,:,0]))
+        diff = np.mean(abs(G.RI-Gexact.RI[:,:dim_embedding,:,:dim_embedding]))
+        print('diff langreth RI = %1.3e'%diff)
+        diffs['RI'].append(diff)
+
+        diff = np.mean(abs(G.L-Gexact.L[:,:dim_embedding,:,:dim_embedding]))
         print('diff langreth L = %1.3e'%diff)
         diffs['L'].append(diff)
-                
+        
         #------------------------------------------------------
 
     plt_diffs(diffs)

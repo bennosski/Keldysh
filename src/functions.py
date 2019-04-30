@@ -5,6 +5,17 @@ def dist(a, b):
     assert np.shape(a)==np.shape(b)
     return np.mean(abs(a-b))
 #--------------------------------------------------------
+def differences(a, b):
+    if type(a).__name__=='langreth':
+        print('M  %1.5e'%dist(a.M, b.M))
+        print('R  %1.5e'%dist(a.R, b.R))
+        print('RI %1.5e'%dist(a.RI, b.RI))
+        print('L  %1.5e'%dist(a.L, b.L))        
+    elif type(a).__name__=='matsubara':
+        print('M  %1.5e'%dist(a.M, b.M))
+    else:
+        raise ValueError
+#--------------------------------------------------------
 def block_diag(x, norb):
     #return np.reshape(np.einsum('xy,ab->xayb', x, np.diag(np.ones(norb))), [np.shape(x)[0]*norb, np.shape(y)[0]*norb])
     return np.einsum('xy,ab->xayb', x, np.diag(np.ones(norb)))

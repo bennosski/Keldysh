@@ -1,0 +1,153 @@
+\documentclass[]{article}
+\usepackage{amsmath}
+
+\usepackage[margin=0.1in]{geometry}
+
+\newcommand{\AND}{\hspace{0.2cm} \mathrm{and} \hspace{0.1cm}}
+
+%opening
+\title{Matsubara time integrals}
+\author{}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+
+\end{abstract}
+
+\section{MxM}
+
+\[
+\begin{split}
+I(\tau) &= \int_0^\beta A(\tau-\tau')B(\tau') d\tau' \\
+        &= \int_0^\tau A(\tau-\tau')B(\tau') d\tau' + \xi_A \int_\tau^\beta A(\beta+\tau-\tau')B(\tau') d\tau'
+\end{split}
+\]
+
+Define 
+
+\[
+\begin{split}
+I^{(1)}(\tau) &=  \int_0^\tau A(\tau-\tau')B(\tau') d\tau' \\
+I^{(2)}(\tau) &= \xi_A \int_\tau^\beta A(\beta+\tau-\tau')B(\tau') d\tau'
+\end{split}
+\]
+
+In terms of our integration weights this becomes
+
+\[
+I^{(1)}_m =\begin{cases}
+           \sum_{k=0}^{p-1} \sum_{l=0}^{p-1} R[m,l,k] A[l] B[k] \hspace{0.4cm}; \hspace{0.4cm} m=0,...,p-1\\
+           \sum_{k=0}^m w[m,k] A[m-k] B[k] \hspace{0.8cm}; \hspace{0.4cm} m=p,...,N-1
+           \end{cases}
+\]
+
+\[
+I^{(2)}_m =\begin{cases}
+           \sum_{k=0}^{p-1} \sum_{l=0}^{p-1} R[N-1-m,l,k] A[N-1-l] B[N-1-k] \hspace{0.4cm}; \hspace{0.4cm} m=N-p,...,N-1\\
+           \sum_{k=m}^{N-1} w[N-1-m,k-m] A[k] B[N-1-(k-m)] \hspace{1.1cm}; \hspace{0.4cm} m=0,...,N-1-p
+           \end{cases}
+\]
+where the $w$ are Gregory integration weights and $R$ are weights obtained from integrating interpolating polynomials exactly within small time intervals. Under the substitutions $k \rightarrow N-1-k$ in the first case and $k \rightarrow N-1-(k-m)$ in the second case this becomes:
+
+\[
+I^{(2)}_m =\begin{cases}
+           \sum_{k=N-p}^{N-1} \sum_{l=0}^{p-1} R[N-1-m,l,N-1-k] A[N-1-l] B[k] \hspace{0.4cm}; \hspace{0.4cm} m=N-p,...,N-1\\
+           \sum_{k=m}^{N-1} w[N-1-m,N-1-k] A[N-1-(k-m)] B[k] \hspace{0.7cm}; \hspace{0.4cm} m=0,...,N-1-p
+           \end{cases}
+\]
+
+We then define the following coefficients:
+
+\[
+C^{(1)}_{m,k} =\begin{cases}
+            \sum_{l=0}^{p-1} R[m,l,k] A[l] \hspace{0.4cm}; \hspace{0.4cm} m=0,...,p-1 \AND k=0,...,p-1\\
+            w[m,k] A[m-k] \hspace{0.8cm}; \hspace{0.4cm} m=p,...,N-1 \AND k=0,...,m
+            \end{cases}
+\]
+
+\[
+C^{(2)}_{m,k} =\begin{cases}
+           \sum_{l=0}^{p-1} R[N-1-m,l,N-1-k] A[N-1-l] \hspace{0.4cm}; \hspace{0.4cm} m=N-p,...,N-1 \AND k=N-p,...,N-1\\
+           w[N-1-m,N-1-k] A[N-1-(k-m)] B[k] \hspace{0.7cm}; \hspace{0.4cm} m=0,...,N-1-p \AND k=m,...,N-1
+           \end{cases}
+\]
+
+And finally,
+
+\[
+I_m = \sum_{k=0}^{N-1} \left[ C^{(1)}_{m,k} + \xi_A C^{(2)}_{m,k} \right] B[k]
+\]
+
+
+\section{RIxM}
+
+\[
+\begin{split}
+I(\tau) &= \int_0^\beta A(\tau')B(\tau'-\tau) d\tau' \\
+        &=  \int_\tau^\beta A(\tau')B(\tau'-\tau) d\tau' + \xi_B \int_0^\tau A(\tau')B(\beta+\tau'-\tau) d\tau'
+\end{split}
+\]
+
+Define 
+
+\[
+\begin{split}
+I^{(1)}(\tau) &= \int_\tau^\beta A(\tau')B(\tau'-\tau) d\tau' \\
+I^{(2)}(\tau) &= \int_0^\tau A(\tau')B(\beta+\tau'-\tau) d\tau'
+\end{split}
+\]
+
+In terms of our integration weights this becomes
+
+\[
+I^{(1)}_m =\begin{cases}
+           \sum_{k=0}^{p-1} \sum_{l=0}^{p-1} R[N-1-m,k,l] A[N-1-k] B[l] \hspace{0.4cm}; \hspace{0.4cm} m=N-p,...,N-1\\
+           \sum_{k=m}^{N-1} w[N-1-m,k-m] A[k] B[k-m] \hspace{1.3cm}; \hspace{0.4cm} m=0,...,N-1-p
+           \end{cases}
+\]
+
+Under the substitutions $N-1-k \rightarrow k$ in the first case :
+\[
+I^{(1)}_m =\begin{cases}
+           \sum_{k=N-p}^{N-1} \sum_{l=0}^{p-1} R[N-1-m,N-1-k,l] A[k] B[l] \hspace{0.4cm}; \hspace{0.4cm} m=N-p,...,N-1\\
+           \sum_{k=m}^{N-1} w[N-1-m,k-m] A[k] B[k-m] \hspace{1.3cm}; \hspace{0.4cm} m=0,...,N-1-p
+           \end{cases}
+\]
+
+\[
+I^{(2)}_m =\begin{cases}
+           \sum_{k=0}^{p-1} \sum_{l=0}^{p-1} R[m,k,l] A[k] B[N-1-l] \hspace{0.4cm}; \hspace{0.4cm} m=0,...,p-1\\
+           \sum_{k=0}^m w[m,k] A[k] B[N-1-m+k] \hspace{0.8cm}; \hspace{0.4cm} m=p,...,N-1
+           \end{cases}
+\]
+
+
+We then define the following coefficients:
+
+\[
+C^{(1)}_{k,m} =\begin{cases}
+           \sum_{l=0}^{p-1} R[N-1-m,N-1-k,l] B[l] \hspace{0.4cm}; \hspace{0.4cm} m=N-p,...,N-1 \AND k=N-p,...,N-1\\
+           w[N-1-m,k-m] B[k-m] \hspace{0.7cm}; \hspace{0.4cm} m=0,...,N-1-p \AND k=m,...,N-1
+           \end{cases}
+\]
+
+\[
+C^{(2)}_{k,m} =\begin{cases}
+            \sum_{l=0}^{p-1} R[m,k,l] B[N-1-l] \hspace{0.4cm}; \hspace{0.4cm} m=0,...,p-1 \AND k=0,...,p-1\\
+            w[m,k] B[N-1-m+k] \hspace{0.8cm}; \hspace{0.4cm} m=p,...,N-1 \AND k=0,...,m
+            \end{cases}
+\]
+
+And finally,
+
+\[
+I_m = \sum_{k=0}^{N-1} A[k] \left[ C^{(1)}_{k,m} + \xi_B C^{(2)}_{k,m} \right] 
+\]
+
+
+
+
+\end{document}

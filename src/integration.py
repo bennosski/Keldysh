@@ -55,7 +55,7 @@ class integrator:
                     Rcorr[m,i,j],err = integrate.quad(kern, 0.0, m)
         return Rcorr
     #------------------------------------------------------------
-    def prep_MxM(self, A):
+    def prep_MxM(self, A, transpose_orbitals=False):
         '''
         prepare A for higher-order (Gregory and boundary correction) convolution using matrix multiplication
 
@@ -63,7 +63,7 @@ class integrator:
 
         output : a matrix of size (ntau x norb x ntau x norb) which can be multiplied by a second vector to produce the convolution
         '''
-
+        
         ntau  = A.ntau
         dtau  = A.dtau
         norb  = A.norb
@@ -74,10 +74,15 @@ class integrator:
         for iorb in range(0,norb):
             for korb in range(0,norb):
 
+                #for m in range(ntau-order,ntau-1):
+                #    for k in range(0,order):
+                #        for l in range(0,order):
+                #             Cmk[m,iorb,ntau-1-k,korb] += -1j*dtau * self.rcorr[ntau-1-m,l,k] * A.sig * A.M[ntau-1-l,iorb,korb]
+
                 for m in range(ntau-order,ntau-1):
-                    for k in range(0,order):
-                        for l in range(0,order):
-                            Cmk[m,iorb,ntau-1-k,korb] += -1j*dtau * self.rcorr[ntau-1-m,l,k] * A.sig * A.M[ntau-1-l,iorb,korb]
+                    for k in range(ntau-order,ntau):
+                        for l in range(0,order):                            
+                            Cmk[m,iorb,k,korb] += -1j*dtau * self.rcorr[ntau-1-m,l,ntau-1-k] * A.sig * A.M[ntau-1-l,iorb,korb]
 
                 for m in range(0,ntau-order):
                     Cmk[m,iorb,m:ntau,korb] += -1j*dtau * self.gregory_matrix_M[ntau-1-m,:ntau-m] * A.sig * A.M[np.arange(ntau-1,m-1,-1),iorb,korb]
@@ -90,7 +95,55 @@ class integrator:
                 for m in range(order,ntau):
                     Cmk[m,iorb,:m+1,korb] += -1j*dtau * self.gregory_matrix_M[m,:m+1] * A.M[np.arange(m,-1,-1),iorb,korb]
 
+                               
+        #if transpose_orbitals==True:
+            #Cmk = np.einsum('manb->mbna', Cmk)
+            
+            
         return np.reshape(Cmk, [ntau*norb, ntau*norb])
+    #------------------------------------------------------------
+    def prep_RIxM(self, B):
+        '''
+        prepare A for higher-order (Gregory and boundary correction) convolution using matrix multiplication
+
+        B : a matsubara or langreth object with a Matsubara matrix of size (ntau x norb, norb)
+
+        output : a matrix of size (ntau x norb x ntau x norb) which can be multiplied by a second vector to produce the convolution
+        '''
+        
+        ntau  = B.ntau
+        dtau  = B.dtau
+        norb  = B.norb
+        order = self.order
+        
+        Ckm = np.zeros((ntau,norb,ntau,norb),dtype=np.complex128)        
+        
+        for iorb in range(0,norb):
+            for korb in range(0,norb):
+
+                for m in range(ntau-order,ntau-1):
+                    for k in range(ntau-order,ntau):
+                        for l in range(0,order):                            
+                            Ckm[k,iorb,m,korb] += -1j*dtau * self.rcorr[ntau-1-m,ntau-1-k,l] * B.M[l,iorb,korb]
+
+                for m in range(0,ntau-order):
+                    Ckm[m:,iorb,m,korb] += -1j*dtau * self.gregory_matrix_M[ntau-1-m,:ntau-m] * B.M[:ntau-m,iorb,korb]
+
+                for m in range(1,order):
+                    for k in range(0,order):
+                        for l in range(0,order):
+                            Ckm[k,iorb,m,korb] += -1j*dtau * self.rcorr[m,k,l] * B.sig * B.M[ntau-1-l,iorb,korb]
+
+                for m in range(order,ntau):
+                    Ckm[:m+1,iorb,m,korb] += -1j*dtau * self.gregory_matrix_M[m,:m+1] * B.sig * B.M[ntau-1-m:,iorb,korb]
+                    
+        return np.reshape(Ckm, [ntau*norb, ntau*norb])
+    #------------------------------------------------------------
+    def get_IR(self, A):
+        return -A.sig * np.einsum('raib->ibra', np.conj(A.RI[:,:,::-1,:]))
+    #------------------------------------------------------------
+    def get_A(self, A):
+        return np.einsum('manb->nbma', np.conj(A.R))    
     #------------------------------------------------------------
     def MxM(self, A, B):
         '''
@@ -104,6 +157,50 @@ class integrator:
         BM = np.reshape(B.M, [ntau*norb, norb])
         out = self.prep_MxM(A) @ BM
         return np.reshape(out, [ntau,norb,norb]) + delta
+    #------------------------------------------------------------
+    def RIxM(self, A, B):
+        ntau = A.ntau
+        nt   = B.nt
+        norb = A.norb
+
+        delta = np.einsum('manb,bc->manc', A.RI, B.deltaM)
+        
+        #ARI = -1j*dtau*np.einsum('i,raib->raib', self.gregory_matrix_M[-1,:], A.RI)
+
+        ARI = np.reshape(A.RI, [nt*norb, ntau*norb])
+        return np.reshape(ARI @ self.prep_RIxM(B), [nt,norb,ntau,norb]) + delta
+    
+        '''
+        ARI = np.reshape(A.RI, [nt*norb, ntau*norb])
+
+        ####
+        # WHAT ABOUT SIGNS IF A/B ARE BOSONIC
+        ####
+        
+        out = self.prep_MxM(B, transpose_orbitals=True) @ ARI.T
+        out = np.reshape(out, [ntau,norb,nt,norb])
+        out = np.einsum('manb->nbma', out)
+
+        return out + delta
+        
+        #return np.reshape(ARI @ self.prep_MxM(B), [nt,norb,ntau,norb]) + delta
+        '''    
+    #------------------------------------------------------------
+    def MxM2(self, A, B):
+        '''
+        A = B*C
+        '''
+        ntau = A.ntau
+        norb = A.norb
+
+        delta = np.einsum('mab,bc->mac', A.M, B.deltaM)
+
+        AM = np.einsum('tab->tba', A.M)
+        AM = np.reshape(AM, [ntau*norb, norb])
+        out = self.prep_MxM(B, transpose_orbitals=True) @ AM
+        out = np.reshape(out, [ntau,norb,norb])
+        out = np.einsum('tab->tba', out)
+        return out + delta        
     #------------------------------------------------------------
     def dyson_matsubara(self, G0, Sigma, G):
         '''
@@ -137,8 +234,10 @@ class integrator:
         nt   = B.nt
         norb = A.norb
 
-        BIR = np.reshape(B.IR, [ntau*norb, nt*norb])
-        return np.reshape(self.prep_MxIR(A) @ BIR, [ntau,norb,nt,norb])
+        #BIR = np.reshape(B.IR, [ntau*norb, nt*norb])
+        BIR = np.reshape(self.get_IR(B), [ntau*norb, nt*norb])
+        return np.reshape(self.prep_MxM(A) @ BIR, [ntau,norb,nt,norb])
+    #------------------------------------------------------------
     #------------------------------------------------------------
     def prep_RIxIR(self, A):
         ntau = A.ntau
@@ -146,15 +245,21 @@ class integrator:
         norb = A.norb
         dtau = A.dtau
         
-        ARI = -1j*dtau*np.einsum('i,ibra->raib', self.gregory_matrix_M[-1,:], -A.sig*np.conj(A.IR[::-1]))
+        #ARI = -1j*dtau*np.einsum('i,ibra->raib', self.gregory_matrix_M[-1,:], -A.sig*np.conj(A.IR[::-1]))
+
+        #ARI = -1j*dtau*np.einsum('i,ibra->raib', self.gregory_matrix_M[-1,:], -A.sig*np.conj(A.IR[::-1]))
+        
+        ARI = -1j*dtau*np.einsum('i,raib->raib', self.gregory_matrix_M[-1,:], A.RI)
         return np.reshape(ARI, [nt*norb, ntau*norb])
     #------------------------------------------------------------
     def RIxIR(self, A, B):
         ntau = A.ntau
         nt   = A.nt
         norb = A.norb
-
-        BIR = np.reshape(B.IR, [ntau*norb, nt*norb])
+        
+        #BIR = np.reshape(B.IR, [ntau*norb, nt*norb])
+        #BIR = -B.sig * np.einsum('raib->ibra', np.conj(A.RI[:,:,::-1,:]))
+        BIR = np.reshape(self.get_IR(B), [ntau*norb, nt*norb])
         return np.reshape(self.prep_RIxIR(A) @ BIR, [nt,norb,nt,norb])
     #------------------------------------------------------------
     def prep_rxA(self, B):
@@ -173,15 +278,17 @@ class integrator:
     def IRxA(self, A, B):
         '''
         prep second matrix for multiplication
-        '''
+        '''        
         nt   = B.nt
         ntau = A.ntau
         norb = B.norb
         dt   = B.dt
 
-        delta = np.einsum('manb,nbc->manc', A.IR, B.deltaR)
+        AIR = self.get_IR(A)
+        delta = np.einsum('manb,ncb->manc', AIR, np.conj(B.deltaR))
 
-        AIR = np.reshape(A.IR, [ntau*norb, nt*norb])
+        AIR = np.reshape(self.get_IR(A), [ntau*norb, nt*norb])
+        #AIR = np.reshape(A.IR, [ntau*norb, nt*norb])
         return np.reshape(AIR @ self.prep_rxA(B), [ntau,norb,nt,norb]) + delta
     #------------------------------------------------------------
     def LxA(self, A, B):
@@ -192,7 +299,7 @@ class integrator:
         norb = B.norb
         dt   = B.dt
 
-        delta = np.einsum('manb,nbc->manc', A.L, B.deltaR)
+        delta = np.einsum('manb,ncb->manc', A.L, np.conj(B.deltaR))
         
         AL = np.reshape(A.L, [nt*norb, nt*norb])
         return np.reshape(AL @ self.prep_rxA(B), [nt,norb,nt,norb]) + delta
@@ -256,17 +363,19 @@ class integrator:
 
         delta = np.einsum('manb,nbc->manc', A.R, B.deltaR)                
         out = np.zeros((nt, norb, nt, norb), dtype=np.complex128)
-        '''
+        
         AR = np.reshape(A.R, [nt*norb, nt, norb])
         BR = np.reshape(B.R, [nt*norb, nt, norb])
         for j in range(nt):
             ws = self.prep_RxR([A,B], j)
+            
             x =  np.reshape(ws[0] @ BR[:,j,:], [nt,norb,norb])[j:]
             out[j:,:,j,:] = x
+            
             x =  np.reshape(ws[1] @ AR[:,j,:], [nt,norb,norb])[j:]
-            x = -np.einsum('mab->bma', x)
+            x = -np.einsum('mab->bma', np.conj(x))
             out[j,:,j:,:] = x
-        '''
+        
         
         #out += delta
         #theta = np.tril(np.ones((nt,nt))) - np.diag(0.5*np.ones(nt))
@@ -274,8 +383,21 @@ class integrator:
         #out -= np.einsum('abcd->cdab', np.conj(out))
 
         return out + delta
+    #------------------------------------------------------------
+    def RxRI(self, A, B):
+        nt   = B.nt
+        ntau = A.ntau
+        norb = B.norb
+        dt   = B.dt
+
+        #delta = np.einsum('manb,nbc->manc', A.R, B.deltaR)
+        
+        BRI = np.reshape(B.RI, [nt*norb, ntau*norb])
+        return np.reshape(self.prep_Rxr(A) @ BRI, [nt,norb,ntau,norb]) #+ delta    
     #------------------------------------------------------------    
     def multiply_langreth(self, A, B, C):
+        exit()
+        
         C.zero()
         
         C.IR = self.IRxA(A, B) + self.MxIR(A, B)
@@ -293,22 +415,38 @@ class integrator:
         
         M = matsubara(G.beta, G.ntau, G.norb, G.sig)
         A = langreth(G.nt, G.tmax, M)
-        self.multiply_langreth(G0, Sigma, A)
 
-        '''
-        print('Sigma')
-        for i,j in product(range(2), repeat=2):
-            plt(np.linspace(0, G.tmax, G.nt), [Sigma.deltaR[:,i,j].real, Sigma.deltaR[:,i,j].imag], 'Sigma deltaR %d %d'%(i,j))
-        '''
+        #self.multiply_langreth(G0, Sigma, A)
 
-        '''
-        print('A = G0 * Sigma')
-        for i,j in product(range(2), repeat=2):
-            im([A.R.real[:,i,:,j], A.R.imag[:,i,:,j]], [0, G.tmax, 0, G.tmax], 'G0 * Sigma R %d %d'%(i,j))
-
-        exit()
-        '''
+        A.RI = self.RxRI(G0, Sigma) + self.RIxM(G0, Sigma)
         
+        A.R = self.RxR(G0, Sigma)
+
+        A.L = self.LxA(G0, Sigma) + self.RxL(G0, Sigma) + self.RIxIR(G0, Sigma)
+
+        A.M = self.MxM(G0, Sigma)
+
+        
+        #print('A - G0 * Sigma')
+
+        #KR = np.einsum('manb,nbc->manc', G0.R, Sigma.deltaR)
+        #KL = np.einsum('manb,ncb->manc', G0.L, np.conj(Sigma.deltaR))
+        #KIR = np.einsum('manb,ncb->manc', G0.IR, np.conj(Sigma.deltaR))
+
+        #print('differences K test')
+        #print('R', dist(KR, A.R))
+        #print('L', dist(KL, A.L))
+        #print('IR', dist(KIR, A.IR))
+
+        # this test checks that K = G0 * Sigma is correct
+        # below this point nothing is singular so it should all work as before
+        
+        #exit()
+        
+        #for i,j in product(range(2), repeat=2):
+        #    im([A.R.real[:,i,:,j], A.R.imag[:,i,:,j]], [0, G.tmax, 0, G.tmax], 'G0 * Sigma R %d %d'%(i,j))
+
+            
         nt   = G0.nt
         norb = G0.norb
         ntau = G0.ntau
@@ -320,17 +458,24 @@ class integrator:
             X = np.diag(np.ones(nt*norb)) - self.prep_RxR([A],j)[0]
             for b in range(norb):
                 n = j*norb + b
-                lhs, rhs = X[n:, n:], G0R[n:,n] - X[n:,:n] @ G.R[:n,n]            
+                lhs, rhs = X[n:,n:], G0R[n:,n] - X[n:,:n] @ G.R[:n,n]            
                 G.R[n:,n] = np.linalg.solve(lhs, rhs)
                 G.R[n,n:] = -np.conj(G.R[n:,n]) 
             
         G.R = np.reshape(G.R, [nt,norb,nt,norb])
-        
+
+
         # solve A_M x B_IR = C_IR - A_IR x B_A
         # note minus sign on A because of I-A
-        rhs = np.reshape(G0.IR + self.IRxA(A, G), [ntau*norb, nt*norb])
-        sol = np.linalg.solve(np.diag(np.ones(ntau*norb)) - self.prep_MxIR(A), rhs)
-        G.IR = np.reshape(sol, [ntau,norb,nt,norb])
+        #rhs = np.reshape(G0.IR + self.IRxA(A, G), [ntau*norb, nt*norb])
+        #sol = np.linalg.solve(np.diag(np.ones(ntau*norb)) - self.prep_MxIR(A), rhs)
+        #G.IR = np.reshape(sol, [ntau,norb,nt,norb])
+
+        # solve A_R x B_RI = C_RI - A_RI x B_M
+        # note minus sign on A because of I-A
+        rhs = np.reshape(G0.RI + self.RIxM(A, G), [nt*norb, ntau*norb])
+        sol = np.linalg.solve(np.diag(np.ones(nt*norb)) - self.prep_Rxr(A), rhs)
+        G.RI = np.reshape(sol, [nt,norb,ntau,norb])
         
         # solve A_R x B_L = C_L - A_L x B_A - A_RI x B_IR
         #       A_R x G_L = G0_L - A_L x G_A - A_RI x G_IR
@@ -338,7 +483,6 @@ class integrator:
         rhs = np.reshape(G0.L + self.LxA(A, G) + self.RIxIR(A, G), [nt*norb, nt*norb])
         sol = np.linalg.solve(np.diag(np.ones(nt*norb)) - self.prep_Rxr(A), rhs)
         G.L = np.reshape(sol, [nt,norb,nt,norb])
-        
         
         
 

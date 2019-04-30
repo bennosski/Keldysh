@@ -60,7 +60,8 @@ def main():
     lamb = 1.0
     order = 6
     ntau = 800
-    #nts = [400,800,1000]
+    dt_fine = 0.01
+
     nts = [10, 50, 100, 500]
     
     diffs = {}
@@ -75,9 +76,9 @@ def main():
         #---------------------------------------------------------
         # compute non-interacting G for the 2x2 problem
         norb = 2
-        def H(kx, ky): return np.array([[e1, lamb], [np.conj(lamb), e2]], dtype=complex)
+        def H(kx, ky, t): return np.array([[e1, lamb], [np.conj(lamb), e2]], dtype=complex)
         constants = (myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, tmax, nt, beta, ntau, norb, pump)
-        UksR, UksI, eks, fks, Rs = init_Uks(H, *constants)
+        UksR, UksI, eks, fks, Rs, _ = init_Uks(H, dt_fine, *constants, version='higher order')
         G2x2M = compute_G0M(0, 0, UksR, UksI, eks, fks, Rs, *constants)
         G2x2  = compute_G0R(0, 0, G2x2M, UksR, UksI, eks, fks, Rs, *constants)
         
@@ -86,9 +87,9 @@ def main():
         # Sigma = |lambda|^2 * g22(t,t')
 
         norb = 1
-        def H(kx, ky): return e2*np.ones([1,1])
+        def H(kx, ky, t): return e2*np.ones([1,1])
         constants = (myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, tmax, nt, beta, ntau, norb, pump)
-        UksR, UksI, eks, fks, Rs = init_Uks(H, *constants)
+        UksR, UksI, eks, fks, Rs, _ = init_Uks(H, dt_fine, *constants, version='higher order')
         SigmaM = compute_G0M(0, 0, UksR, UksI, eks, fks, Rs, *constants)
         SigmaM.scale(lamb*np.conj(lamb))
         Sigma = compute_G0R(0, 0, SigmaM, UksR, UksI, eks, fks, Rs, *constants)
@@ -98,13 +99,13 @@ def main():
         # solve the embedding problem
         
         norb = 1
-        def H(kx, ky): return e1*np.ones([1,1])
+        def H(kx, ky, t): return e1*np.ones([1,1])
         constants = (myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, tmax, nt, beta, ntau, norb, pump)
-        UksR, UksI, eks, fks, Rs = init_Uks(H, *constants)
+        UksR, UksI, eks, fks, Rs, _ = init_Uks(H, dt_fine, *constants, version='higher order')
         G0M = compute_G0M(0, 0, UksR, UksI, eks, fks, Rs, *constants)
         G0  = compute_G0R(0, 0, G0M, UksR, UksI, eks, fks, Rs, *constants)
                 
-        integrator = integration.integrator(6, nt, beta, ntau, norb)
+        integrator = integration.integrator(6, nt, beta, ntau)
 
         GM = matsubara(beta, ntau, norb, -1)
         integrator.dyson_matsubara(G0M, SigmaM, GM)
