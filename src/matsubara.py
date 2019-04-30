@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.linalg import block_diag
 from functions import *
+import h5py
 
 class matsubara:
     def __init__(self, beta, ntau, norb, sig):
@@ -13,23 +14,42 @@ class matsubara:
         self.M = np.zeros([ntau, norb, norb], dtype=np.complex128)
         self.deltaM = np.zeros([norb, norb], dtype=np.complex128)    
     #---------------------------------------------------
-    def add(self, b):
-        self.M += b.M
-        self.deltaM += b.deltaM
+    def add(self, B):
+        self.M += B.M
+        self.deltaM += B.deltaM
     #---------------------------------------------------
     def scale(self, c):
         self.M *= c
         self.deltaM *= c
     #---------------------------------------------------
-    def mycopy(self, b):
+    def multiply(self, B):
+        self.M *= B.M
+        self.deltaM *= B.deltaM
+        self.sig *= B.sig
+    #---------------------------------------------------
+    def copy(self, b):
         pass
     #---------------------------------------------------
-    def mysave(self, myfile):
-        pass
+    def save(self, folder, myfile):
+        f = h5py.File(folder+myfile, 'w')
+        params = f.create_dataset('/params', dtype='f')
+        params.attrs['ntau'] = self.ntau
+        params.attrs['beta'] = self.beta
+        params.attrs['norb'] = self.norb
+        params.attrs['sig']  = self.sig
+        f.create_dataset('/M', data=self.M)
+        f.create_dataset('/deltaM', data=self.deltaM)
+        f.close()
     #---------------------------------------------------
-    def myload(self, myfile):
-        pass
-
+    def load(self, folder, myfile):
+        f = h5py.File(folder+myfile, 'r')
+        self.M = f['/M'][...]
+        self.deltaM = f['/deltaM'][...]
+        self.ntau = f['/params'].attrs['ntau']
+        self.beta = f['/params'].attrs['beta']
+        self.norb = f['/params'].attrs['norb']
+        self.sig  = f['/params'].attrs['sig']
+        f.close()
 #---------------------------------------------------
 def compute_G00M(ik1, ik2, myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, tmax, nt, beta, ntau, norb, pump):
     G0 = matsubara(beta, ntau, norb, -1)
@@ -67,7 +87,7 @@ def compute_D0M(omega, beta, ntau, norb):
     taus = np.linspace(0, beta, ntau)
 
     # check this carefully
-    x = -1j*(nB+0.0)*np.exp(omega*taus) - 1j*(nB+1.0)*np.exp(-omega*(taus))
+    x = -1j*(nB+0.0)*np.exp(omega*taus) - 1j*(nB+1.0)*np.exp(-omega*taus)
     D0.M = np.einsum('t,ab->tab', x, np.diag(np.ones(norb)))
         
     return D0

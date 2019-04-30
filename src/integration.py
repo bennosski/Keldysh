@@ -369,7 +369,7 @@ class integrator:
 
         A.L = self.LxA(G0, Sigma) + self.RxL(G0, Sigma) + self.RIxIR(G0, Sigma)
 
-        A.M = self.MxM(G0, Sigma)
+        #A.M = self.MxM(G0, Sigma)
             
         nt   = G0.nt
         norb = G0.norb

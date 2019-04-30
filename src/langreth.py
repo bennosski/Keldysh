@@ -58,21 +58,32 @@ class langreth:
         self.deltaR = np.zeros_like(self.deltaR)
         self.deltaM = np.zeros_like(self.deltaM)
     #---------------------------------------------------     
-    def mysave(self, myfile):
-        np.save(myfile+'L', self.L)
-        np.save(myfile+'R', self.R)
-        np.save(myfile+'RI', self.RI)
-        np.save(myfile+'M', self.M)
-        np.save(myfile+'deltaR', self.deltaR)
-        np.save(myfile+'deltaM', self.deltaM)
+    def save(self, folder, myfile):
+        f = h5py.File(folder+myfile, 'w')
+        params = f.create_dataset('/params', dtype='f')
+        params.attrs['ntau'] = self.ntau
+        params.attrs['norb'] = self.norb
+        params.attrs['nt']   = self.nt
+        f.create_dataset('/L', data=self.L)
+        f.create_dataset('/RI', data=self.RI)
+        f.create_dataset('/R', data=self.R)
+        f.create_dataset('/deltaR', data=self.deltaR)
+        f.create_dataset('/M', data=self.M)
+        f.create_dataset('/deltaM', data=self.deltaM)
+        f.close()
     #---------------------------------------------------
-    def myload(self, myfile):
-        self.L  = np.load(myfile+'L.npy')
-        self.R  = np.load(myfile+'R.npy')
-        self.RI = np.load(myfile+'RI.npy')
-        self.M  = np.load(myfile+'M.npy')
-        self.deltaR = np.load(myfile+'deltaR.npy')
-        self.deltaM = np.load(myfile+'deltaM.npy')
+    def load(self, folder, myfile):
+        f = h5py.File(folder+myfile, 'r')
+        self.M      = f['/M'][...]
+        self.deltaM = f['/deltaM'][...]
+        self.R      = f['/R'][...]
+        self.deltaR = f['/deltaR'][...]
+        self.RI     = f['/RI'][...]
+        self.L      = f['/L'][...]
+        self.ntau   = f['/params'].attrs['ntau']
+        self.norb   = f['/params'].attrs['norb']
+        self.nt     = f['/params'].attrs['nt']
+        f.close()
     #---------------------------------------------------
     def __str__(self):
         return 'L  max %1.3e mean %1.3e'%(np.amax(np.abs(self.L)), np.mean(np.abs(self.L))) +'\n' \
@@ -167,7 +178,7 @@ def init_Uks(H, dt_fine, myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, tmax, nt, beta,
                 eks[index], Rs[index] = np.linalg.eig(H(kx,ky,0))
                 #eks[index], Rs[index] = np.linalg.eig(Ht[index,0])
                 
-                fks[index] = 1.0/(np.exp(beta*eks)+1.0)
+                fks[index] = 1.0/(np.exp(beta*eks[index])+1.0)
 
                 # better way since all H commute at t=0
                 # pull R across the U(tau,0) when computing bare G so that we work with diagonal things

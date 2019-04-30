@@ -75,8 +75,14 @@ def get_kx_ky(ik1, ik2, Nkx, Nky, ARPES=False):
         ky = 4*np.pi/3*f + 2*np.pi/3*f
         kx = 2*np.pi/np.sqrt(3.)*f
         '''
-        kx = 0.0
-        ky = 0.0
+        
+        #kx = 0.0
+        #ky = 0.0
+
+        dkx = 2.0*np.pi/Nkx
+        dky = 2.0*np.pi/Nky
+        kx = -np.pi + dkx*ik1
+        ky = -np.pi + dky*ik2
 
     return kx, ky
 #--------------------------------------------------------
