@@ -85,7 +85,7 @@ def main():
         for ik in range(kpp):
             ik1,ik2 = i2k[ik]
 
-            G0M = compute_G0M(ik1, ik2, UksR, UksI, eks, fks, Rs, *constants)
+            G0M = compute_G0M(ik1, ik2, UksI, eks, fks, Rs, *constants)
             G0 = compute_G0R(ik1, ik2, UksR, UksI, eks, fks, Rs, *constants)
 
             if i==0:
