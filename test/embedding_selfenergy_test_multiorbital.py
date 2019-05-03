@@ -113,7 +113,7 @@ def main():
         constants = (myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, tmax, nt, beta, ntau, norb, pump)
         UksR, UksI, eks, fks, Rs, Ht = init_Uks(H, dt_fine, *constants, version='higher order')
         
-        GexactM = compute_G0M(0, 0, UksR, UksI, eks, fks, Rs, *constants)
+        GexactM = compute_G0M(0, 0, UksI, eks, fks, Rs, *constants)
         Gexact  = compute_G0R(0, 0, UksR, UksI, eks, fks, Rs, *constants)
         
         #------------------------------------------------------
@@ -126,7 +126,7 @@ def main():
         constants = (myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, tmax, nt, beta, ntau, norb, pump)
         UksR, UksI, eks, fks, Rs, _ = init_Uks(H, dt_fine, *constants, version='higher order')
 
-        SM = compute_G0M(0, 0, UksR, UksI, eks, fks, Rs, *constants)
+        SM = compute_G0M(0, 0, UksI, eks, fks, Rs, *constants)
         SM.M = np.einsum('hi,mij,jk->mhk', Ht[0,0,:dim_embedding,dim_embedding:], SM.M, Ht[0,0,dim_embedding:,:dim_embedding])
 
         #taus = np.linspace(0, beta, ntau)
@@ -156,7 +156,7 @@ def main():
         constants = (myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, tmax, nt, beta, ntau, norb, pump)
         #Ht = init_Ht(H, *constants)
         UksR, UksI, eks, fks, Rs, _ = init_Uks(H, dt_fine, *constants, version='higher order')
-        G0M = compute_G0M(0, 0, UksR, UksI, eks, fks, Rs, *constants)
+        G0M = compute_G0M(0, 0, UksI, eks, fks, Rs, *constants)
         G0  = compute_G0R(0, 0, UksR, UksI, eks, fks, Rs, *constants)
                 
         integrator = integration.integrator(6, nt, beta, ntau)
@@ -169,7 +169,7 @@ def main():
         print('diff = %1.3e'%diff)
                 
         G  = langreth(norb, nt, tmax, ntau, beta, -1)
-        integrator.dyson_langreth(G0M, SigmaM, GM, G0, Sigma, G)
+        integrator.dyson_langreth(G0M, SigmaM, G0, Sigma, G)
         
         #------------------------------------------------------
         

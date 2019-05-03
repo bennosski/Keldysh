@@ -17,13 +17,16 @@ def plt_diffs(diffs):
     show()
     savefig('result.png')
 #-------------------------------------------------------- 
-def plt(x, ys, name):
+def plt(x, ys, name, folder='', xlims=None):
     figure()
     styles = ['-','--']
     for i,y in enumerate(ys):
         plot(x, y, styles[i%len(styles)])
+    if xlims is not None:
+        xlim(xlims)
     title(name)
     show()
+    savefig(folder+name)
 #-------------------------------------------------------- 
 def im(ys, extent, name):
     f = figure()
@@ -34,3 +37,4 @@ def im(ys, extent, name):
         colorbar(image, ax=ax)
     title(name)
     show()
+    

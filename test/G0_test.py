@@ -84,7 +84,7 @@ def main():
         def H0(kx, ky, t): return np.zeros([norb,norb])
         constants = (myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, tmax, nt, beta, ntau, norb, pump)
         UksR, UksI, eks, fks, Rs, Ht = init_Uks(H0, dt_fine, *constants, version='higher order')
-        G0M_ref = compute_G0M(0, 0, UksR, UksI, eks, fks, Rs, *constants)
+        G0M_ref = compute_G0M(0, 0, UksI, eks, fks, Rs, *constants)
         G0_ref  = compute_G0R(0, 0, UksR, UksI, eks, fks, Rs, *constants)
 
         dt = 1.0*tmax/(nt-1)
@@ -125,7 +125,7 @@ def main():
         Sigma = langreth(norb, nt, tmax, ntau, beta, -1)
         for it in range(nt):
             Sigma.deltaR[it] = H(0, 0, it*dt)
-        integrator.dyson_langreth(G0M, SigmaM, GM, G0, Sigma, G)
+        integrator.dyson_langreth(G0M, SigmaM, G0, Sigma, G)
 
         return GM, G
     
@@ -156,13 +156,13 @@ def main():
         p = np.einsum('tba,tbc->tac', np.conj(Uexact[0,:]), Uexact[0,:])
         print(dist(p, np.einsum('t,ab->tab', np.ones(nt), np.diag(np.ones(norb)))))
 
-        GMexact = compute_G0M(0, 0, Uexact, UksI, eks, fks, Rs, *constants)
+        GMexact = compute_G0M(0, 0, UksI, eks, fks, Rs, *constants)
         Gexact = compute_G0R(0, 0, Uexact, UksI, eks, fks, Rs, *constants)
         
         #---------------------------------------------------------
         # compute G0 computed with U(t,t') via integration        
         UksR, UksI, eks, fks, Rs, _ = init_Uks(H, dt_fine, *constants, version='higher order')
-        G0M = compute_G0M(0, 0, UksR, UksI, eks, fks, Rs, *constants)
+        G0M = compute_G0M(0, 0, UksI, eks, fks, Rs, *constants)
         G0  = compute_G0R(0, 0, UksR, UksI, eks, fks, Rs, *constants)
 
         # test for U(t,t')

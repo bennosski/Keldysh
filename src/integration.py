@@ -5,6 +5,8 @@ from matsubara import *
 from langreth import *
 
 class integrator:
+    from profiler import timed
+
     def __init__(self, order, nt, beta, ntau):
         self.gregory_matrix_M = self._compute_gregory_matrix(ntau, order)
         self.rcorr = self._compute_rcorr(order)
@@ -55,6 +57,7 @@ class integrator:
                     Rcorr[m,i,j],err = integrate.quad(kern, 0.0, m)
         return Rcorr
     #------------------------------------------------------------
+    @timed
     def prep_MxM(self, A):
         '''
         prepare A for higher-order (Gregory and boundary correction) convolution using matrix multiplication
@@ -91,6 +94,7 @@ class integrator:
                     Cmk[m,iorb,:m+1,korb] += -1j*dtau * self.gregory_matrix_M[m,:m+1] * A.M[np.arange(m,-1,-1),iorb,korb]                        
         return np.reshape(Cmk, [ntau*norb, ntau*norb])
     #------------------------------------------------------------
+    @timed
     def prep_RIxM(self, B):
         '''
         prepare A for higher-order (Gregory and boundary correction) convolution using matrix multiplication
@@ -134,6 +138,7 @@ class integrator:
     def get_A(self, A):
         return np.einsum('manb->nbma', np.conj(A.R))    
     #------------------------------------------------------------
+    @timed
     def MxM(self, A, B):
         '''
         A = B*C
@@ -147,6 +152,7 @@ class integrator:
         out = self.prep_MxM(A) @ BM
         return np.reshape(out, [ntau,norb,norb]) + delta
     #------------------------------------------------------------
+    @timed
     def RIxM(self, A, B):
         ntau = A.ntau
         nt   = A.nt
@@ -159,6 +165,7 @@ class integrator:
         ARI = np.reshape(A.RI, [nt*norb, ntau*norb])
         return np.reshape(ARI @ self.prep_RIxM(B), [nt,norb,ntau,norb]) + delta
     #------------------------------------------------------------
+    @timed
     def dyson_matsubara(self, G0, Sigma, G):
         '''
         compute G.M = (I-G0.M*Sigma.M)^(-1)*G0.M
@@ -195,6 +202,7 @@ class integrator:
         BIR = np.reshape(self.get_IR(B), [ntau*norb, nt*norb])
         return np.reshape(self.prep_MxM(A) @ BIR, [ntau,norb,nt,norb])
     #------------------------------------------------------------
+    @timed
     def prep_RIxIR(self, A):
         ntau = A.ntau
         nt   = A.nt
@@ -208,6 +216,7 @@ class integrator:
         ARI = -1j*dtau*np.einsum('i,raib->raib', self.gregory_matrix_M[-1,:], A.RI)
         return np.reshape(ARI, [nt*norb, ntau*norb])
     #------------------------------------------------------------
+    @timed
     def RIxIR(self, A, B):
         ntau = A.ntau
         nt   = A.nt
@@ -218,6 +227,7 @@ class integrator:
         BIR = np.reshape(self.get_IR(B), [ntau*norb, nt*norb])
         return np.reshape(self.prep_RIxIR(A) @ BIR, [nt,norb,nt,norb])
     #------------------------------------------------------------
+    @timed
     def prep_rxA(self, B):
         '''
         prep second matrix for multiplication
@@ -231,6 +241,7 @@ class integrator:
         x = dt * np.einsum('jk,kajb->kajb', self.gregory_matrix_R, BA)
         return np.reshape(x, [nt*norb, nt*norb])
     #------------------------------------------------------------
+    @timed
     def IRxA(self, A, B):
         '''
         prep second matrix for multiplication
@@ -246,6 +257,7 @@ class integrator:
         AIR = np.reshape(self.get_IR(A), [ntau*norb, nt*norb])
         return np.reshape(AIR @ self.prep_rxA(B), [ntau,norb,nt,norb]) + delta
     #------------------------------------------------------------
+    @timed
     def LxA(self, A, B):
         '''
         prep second matrix for multiplication
@@ -259,6 +271,7 @@ class integrator:
         AL = np.reshape(A.L, [nt*norb, nt*norb])
         return np.reshape(AL @ self.prep_rxA(B), [nt,norb,nt,norb]) + delta
     #------------------------------------------------------------
+    @timed
     def prep_Rxr(self, A):
         nt   = A.nt
         norb = A.norb
@@ -267,6 +280,7 @@ class integrator:
         x = dt * np.einsum('nk,nakb->nakb', self.gregory_matrix_R, A.R)
         return np.reshape(x, [nt*norb, nt*norb])
     #------------------------------------------------------------
+    @timed
     def RxL(self, A, B):
         nt   = A.nt
         norb = A.norb
@@ -293,6 +307,7 @@ class integrator:
         B = np.reshape(B, [nt*norb, norb])
         return np.reshape(self.prep_Rxr(A) @ B, [nt,norb,norb])     
     #------------------------------------------------------------
+    @timed
     def prep_RxR(self, As, j):
         nt   = As[0].nt
         norb = As[0].norb
@@ -310,6 +325,7 @@ class integrator:
         xs = [np.reshape(x, [nt*norb, nt*norb]) for x in xs]
         return xs
     #------------------------------------------------------------
+    @timed
     def RxR(self, A, B):
         nt   = A.nt
         norb = A.norb
@@ -331,6 +347,7 @@ class integrator:
 
         return out + delta
     #------------------------------------------------------------
+    @timed
     def RxRI(self, A, B):
         nt   = B.nt
         ntau = A.ntau
@@ -355,12 +372,15 @@ class integrator:
 
         C.M = self.MxM(A, B)
     #------------------------------------------------------------    
-    def dyson_langreth(self, G0M, SigmaM, GM, G0, Sigma, G):
+    @timed
+    def dyson_langreth(self, G0M, SigmaM, G0, Sigma, G):
 
         # IS G0*Sigma still fermionic? A.sig=-1?
         # yes I think so because it worked for Matsubara...
         
-        M = matsubara(GM.beta, GM.ntau, GM.norb, GM.sig)
+        GM = matsubara(G0M.beta, G0M.ntau, G0M.norb, G0M.sig)
+        self.dyson_matsubara(G0M, SigmaM, GM)
+
         A = langreth(G.norb, G.nt, G.tmax, G.ntau, G.beta, G.sig)
 
         A.RI = self.RxRI(G0, Sigma) + self.RIxM(G0, SigmaM)

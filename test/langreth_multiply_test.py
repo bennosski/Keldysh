@@ -90,7 +90,7 @@ def main():
         def H(kx, ky, t): return e2*np.ones([1,1])
         constants = (myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, tmax, nt, beta, ntau, norb, pump)
         UksR, UksI, eks, fks, Rs, _ = init_Uks(H, dt_fine, *constants, version='higher order')
-        SigmaM = compute_G0M(0, 0, UksR, UksI, eks, fks, Rs, *constants)
+        SigmaM = compute_G0M(0, 0, UksI, eks, fks, Rs, *constants)
         SigmaM.scale(lamb*np.conj(lamb))
         Sigma = compute_G0R(0, 0, UksR, UksI, eks, fks, Rs, *constants)
         Sigma.scale(lamb*np.conj(lamb))
@@ -100,7 +100,7 @@ def main():
         def H(kx, ky, t): return e1*np.ones([1,1])
         constants = (myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, tmax, nt, beta, ntau, norb, pump)
         UksR, UksI, eks, fks, Rs, _ = init_Uks(H, dt_fine, *constants, version='higher order')
-        G0M = compute_G0M(0, 0, UksR, UksI, eks, fks, Rs, *constants)
+        G0M = compute_G0M(0, 0, UksI, eks, fks, Rs, *constants)
         G0  = compute_G0R(0, 0, UksR, UksI, eks, fks, Rs, *constants)
 
         integrator = integration.integrator(order, nt, beta, ntau)

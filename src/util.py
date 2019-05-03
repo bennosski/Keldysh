@@ -1,4 +1,4 @@
-import subprocess, os
+import subprocess, os, shutil
 
 #--------------------------------------------------------
 def parseline(mystr):
@@ -12,3 +12,6 @@ def mymkdir(mydir):
     if not os.path.exists(mydir):
         print('making ',mydir)
         os.mkdir(mydir)
+#--------------------------------------------------------
+def saveparams(savedir):
+    shutil.copyfile('params.py', savedir+'params.py')

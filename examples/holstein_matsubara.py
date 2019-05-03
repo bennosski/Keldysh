@@ -28,6 +28,8 @@ import integration
 from matsubara import *
 from plotting import *
 
+from params import *
+
 def main():
 
     if myrank==0:
@@ -37,19 +39,8 @@ def main():
         print(' ')
         print('nprocs = ',nprocs)
     
-    Nkx = 100
-    Nky = 1
-    beta  = 10.0    
-    ntau = 600
-    ARPES = False
-    pump  = 0
-    g2    = 0.1
-    omega = 0.5
-    tmax  = 4.0
-    nt    = 100
-    order = 6
-    dt_fine = 0.1*tmax/(nt-1)
-    norb = 1
+    if not os.path.exists(savedir): os.mkdir(savedir)
+    assert not os.path.exists(savedir+'SigmaM') and not os.path.exists(savedir+'GlocM'), 'Cannot overwrite existing data'
 
     volume = Nkx*Nky
 
@@ -58,35 +49,38 @@ def main():
 
     integrator = integration.integrator(6, nt, beta, ntau)
 
-    def H(kx, ky, t):
+    def H(kx, ky):
         return -2.0*np.cos(kx)*np.ones([norb, norb])
     constants = (myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, tmax, nt, beta, ntau, norb, pump)
-    UksR, UksI, eks, fks, Rs, Ht = init_Uks(H, dt_fine, *constants, version='higher order')
+    UksI, eks, fks, Rs = init_UksM(H, dt_fine, *constants, version='higher order')
 
     print('Done initializing Us')
     
-    # Solve Matsubara problem first    
+    # Solve Matsubara problem
     #---------------------------------------------------------
 
     DM = compute_D0M(omega, beta, ntau, norb)
 
-    print('Done initializing DM')
-
-    GlocM = matsubara(beta, ntau, norb, -1)
-    for ik in range(kpp):
-        ik1,ik2 = i2k[ik]
-        G0M = compute_G0M(ik1, ik2, UksR, UksI, eks, fks, Rs, *constants)
-        GlocM.add(G0M)
-
-    print('Done computing GlocM')
-
     SigmaM = matsubara(beta, ntau, norb, -1)
-    iter_selfconsistency = 1
+    iter_selfconsistency = 8
     change = 0.0
     for i in range(iter_selfconsistency):
         print('iteration : %d'%i)
 
         SigmaM0 = SigmaM.M.copy()
+
+        GlocM = matsubara(beta, ntau, norb, -1)
+        for ik in range(kpp):
+            ik1,ik2 = i2k[ik]
+            G0M = compute_G0M(ik1, ik2, UksI, eks, fks, Rs, *constants)
+
+            if i==0:
+                GM = G0M
+            else:
+                GM = matsubara(beta, ntau, norb, -1)
+                integrator.dyson_matsubara(G0M, SigmaM, GM)
+            
+            GlocM.add(GM)
 
         SigmaM = matsubara(beta, ntau, norb, -1)
         if nprocs==1:
@@ -101,43 +95,13 @@ def main():
         change = np.mean(abs(SigmaM0-SigmaM.M))
         print('change = %1.3e'%change)
 
-        GlocM = matsubara(beta, ntau, norb, -1)
-        for ik in range(kpp):
-            ik1,ik2 = i2k[ik]
-            G0M = compute_G0M(ik1, ik2, UksR, UksI, eks, fks, Rs, *constants)
-
-            GM = matsubara(beta, ntau, norb, -1)
-            integrator.dyson_matsubara(G0M, SigmaM, GM)
-            
-            GlocM.add(GM)
-            
         print('Done computing GlocM')
-        
-    SigmaM.save('data/', 'SigmaM')
-    GlocM.save('data/', 'GlocM')
-
-    testM = matsubara(2, 2, 2, 2)
-    
-    testM.load('data/', 'SigmaM')
-
-    print(testM.ntau)
-    print(testM.beta)
-    print(testM.norb)
-    print(testM.sig)
-    print(np.shape(testM.M))
-    print(np.shape(testM.deltaM))
-    
-
-    #---------------------------------------------------------
-
-    exit()
-
-    G0  = compute_G0R(0, 0, G0M, UksR, UksI, eks, fks, Rs, *constants)
-    
 
 
-    plt_diffs(diffs)
-        
+    SigmaM.save(savedir, 'SigmaM')
+    GlocM.save(savedir, 'GlocM')
+    saveparams(savedir)
+
     if 'MPI' in sys.modules:
         MPI.Finalize()
 

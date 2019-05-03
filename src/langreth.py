@@ -3,6 +3,9 @@ from scipy.linalg import expm
 from functions import *
 from plotting import *
 from itertools import product
+import h5py
+import os
+from profiler import timed
 
 class langreth:
     def __init__(self, norb, nt, tmax, ntau, beta, sig):
@@ -18,8 +21,7 @@ class langreth:
         #self.ntau = M.ntau
         #self.beta = M.beta
         #self.sig  = M.sig
-        #self.norb  = norb
-        
+        #self.norb  = norb        
         #self.dtau = dtau
         self.dtau = 1.0*beta/(ntau-1)
         self.dt   = 1.0*self.tmax/(self.nt-1)
@@ -30,40 +32,48 @@ class langreth:
         
         self.L  = np.zeros([nt, norb, nt, norb], dtype=np.complex128)
         self.R  = np.zeros([nt, norb, nt, norb], dtype=np.complex128)
-        self.RI = np.zeros([ntau, norb, nt, norb], dtype=np.complex128)
-        #self.M  = M.M
+        self.RI = np.zeros([nt, norb, ntau, norb], dtype=np.complex128)
         self.deltaR = np.zeros([nt, norb, norb], dtype=np.complex128)
-        #self.deltaM = M.deltaM        
     #---------------------------------------------------     
     def add(self, b):
         self.L  += b.L
         self.R  += b.R
         self.RI += b.RI
         self.deltaR += b.deltaR
-
-        # NOTE : langreth operations should never change the matsubara piece
-        #self.M  += b.M
-        #self.deltaM += b.deltaM
     #---------------------------------------------------
     def scale(self, c):
         self.L  *= c
         self.R  *= c
         self.RI *= c
         self.deltaR *= c
-
-        # NOTE : langreth operations should never change the matsubara piece
-        #self.M  *= c
-        #self.deltaM *= c
+    #---------------------------------------------------
+    def multiply(self, B):
+        #self.L  *= B.L
+        #self.R  *= B.R
+        #self.RI *= B.RI
+        #self.deltaR *= B.deltaR
+        #self.sig *= B.sig
+        self.L = np.einsum('manb,mn->manb', self.L, B.L)
+        self.R = np.einsum('manb,mn->manb', self.R, B.R)
+        self.RI = np.einsum('manb,mn->manb', self.RI, B.RI)
+        self.sig = self.sig * B.sig
+    #---------------------------------------------------
+    def copy(self, B):
+        self.L = B.L
+        self.R = B.R
+        self.RI = B.RI
+        self.deltaR = B.deltaR
+        self.sig = B.sig
     #---------------------------------------------------     
     def zero(self):
         self.L  = np.zeros_like(self.L)
         self.R  = np.zeros_like(self.R)
         self.RI = np.zeros_like(self.RI)
-        #self.M  = np.zeros_like(self.M)
         self.deltaR = np.zeros_like(self.deltaR)
-        #self.deltaM = np.zeros_like(self.deltaM)
     #---------------------------------------------------     
     def save(self, folder, myfile):
+        assert not os.path.exists(folder+myfile), 'Cannot Overwrite Existing Data'
+
         f = h5py.File(folder+myfile, 'w')
         params = f.create_dataset('/params', dtype='f')
         params.attrs['ntau'] = self.ntau
@@ -82,7 +92,7 @@ class langreth:
         #f.create_dataset('/deltaM', data=self.deltaM)
         f.close()
     #---------------------------------------------------
-    def load(self, folder, myfile):
+    def load(self, folder, myfile):        
         f = h5py.File(folder+myfile, 'r')
         #self.M      = f['/M'][...]a
         #self.deltaM = f['/deltaM'][...]
@@ -147,6 +157,7 @@ def compute_U(H, kx, ky, t0, dt, pump, dt_fine, norb):
         
     return U
 #---------------------------------------------------
+@timed
 def init_Uks(H, dt_fine, myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, tmax, nt, beta, ntau, norb, pump, version='regular'):
     '''
     for ARPES, use Nky = 1 
@@ -225,6 +236,7 @@ def compute_G00R(ik1, ik2, myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, tmax, nt, bet
 
     return G0
 #---------------------------------------------------
+@timed
 def compute_G0R(ik1, ik2, UksR, UksI, eks, fks, Rs, myrank, Nkx, Nky, ARPES, kpp, k2p, k2i, tmax, nt, beta, ntau, norb, pump):
 
     G0 = langreth(norb, nt, tmax, ntau, beta, -1)
@@ -247,28 +259,41 @@ def compute_G0R(ik1, ik2, UksR, UksI, eks, fks, Rs, myrank, Nkx, Nky, ARPES, kpp
         
     return G0
 #---------------------------------------------------
-def compute_D0R(omega, nt, tmax, ntau, beta, sig):
+@timed
+def compute_D0R(norb, omega, nt, tmax, ntau, beta, sig):
 
-    D0 = langreth(norb, nt, tmax, ntau, beta, sig)
+    #D0 = langreth(norb, nt, tmax, ntau, beta, sig)
 
     #beta = D0.beta
     #tmax = D0.tmax
     #norb = D0.norb
     #ntau = D0.ntau
     
+    class D:
+        pass
+
+    D0 = D()
+
     nB = 1./(np.exp(beta*omega)-1.0)
     
     ts = np.linspace(0, tmax, nt)
     taus = np.linspace(0, beta, ntau)
 
-    x = -1j*(nB+1.0-0.0)*np.exp(1j*omega*(ts[:,None]-ts[None,:])) - 1j*(nB+0.0)*np.exp(-1j*omega*(ts[:,None]-ts[None,:])) 
-    D0.L = block_diag(x, norb)
+    D0.L = -1j*(nB+1.0-0.0)*np.exp(1j*omega*(ts[:,None]-ts[None,:])) - 1j*(nB+0.0)*np.exp(-1j*omega*(ts[:,None]-ts[None,:])) 
+    #D0.L = block_diag(x, norb)
+    
 
     x = -1j*(nB+1.0-1.0)*np.exp(1j*omega*(ts[:,None]-ts[None,:])) - 1j*(nB+1.0)*np.exp(-1j*omega*(ts[:,None]-ts[None,:]))
-    D0.R = block_diag(x, norb) - D0.L
+    D0.R = x - D0.L
     
+    #D0.R = -1j*np.sin(omega*(ts[:,None]-ts[None,:]))
+    #D0.R = block_diag(x, norb)
+
     x = -1j*(nB+1.0-0.0)*np.exp(1j*omega*(ts[:,None]+1j*taus[None,:])) - 1j*(nB+0.0)*np.exp(-1j*omega*(ts[:,None]+1j*taus[None,:]))
-    D.RI = block_diag(x, norb)
+    #D0.RI = block_diag(x, norb)
+    D0.RI = x
+
+    D0.sig = +1
 
     #x = -1j*(nB+1.0-1.0)*np.exp(1j*omega*(-1j*taus[:,None]-ts[None,:])) - 1j*(nB+1.0)*np.exp(-1j*omega*(-1j*taus[:,None]-ts[None,:]))
     #D0.IR = block_diag(x, norb)
